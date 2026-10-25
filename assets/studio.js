@@ -146,26 +146,36 @@
     // 5. NAVIGATION TAB SWITCHING
     // ========================================================
     const tabButtons = document.querySelectorAll(".tab-btn");
-    const toolPanels = document.querySelectorAll(".tool-panel");
 
     function switchTab(targetId) {
+        if (!targetId) return;
+
         tabButtons.forEach(btn => {
             const isTarget = btn.getAttribute("data-target") === targetId;
             if (isTarget) {
-                btn.className = "tab-btn active flex items-center justify-center gap-2 px-4 py-3 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all duration-200 bg-gradient-to-r from-emerald-500 to-cyan-500 text-slate-950 shadow-glow-emerald";
+                btn.className = "tab-btn active flex items-center justify-center gap-2 px-3 py-3 rounded-xl text-xs sm:text-xs lg:text-[13px] font-bold transition-all duration-200 bg-gradient-to-r from-emerald-500 to-cyan-500 text-slate-950 shadow-glow-emerald";
             } else {
-                btn.className = "tab-btn flex items-center justify-center gap-2 px-4 py-3 sm:py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-200 bg-slate-800/80 text-slate-300 hover:text-white hover:bg-slate-700/80 border border-slate-700/50";
+                btn.className = "tab-btn flex items-center justify-center gap-2 px-3 py-3 rounded-xl text-xs sm:text-xs lg:text-[13px] font-semibold transition-all duration-200 bg-slate-800/80 text-slate-300 hover:text-white hover:bg-slate-700/80 border border-slate-700/50";
             }
         });
 
-        toolPanels.forEach(panel => {
+        const allPanels = document.querySelectorAll(".tab-panel, .tool-panel");
+        allPanels.forEach(panel => {
             if (panel.id === targetId) {
                 panel.classList.remove("hidden");
+                panel.style.display = "block";
             } else {
                 panel.classList.add("hidden");
+                panel.style.display = "none";
             }
         });
+
+        const activePanel = document.getElementById(targetId);
+        if (activePanel) {
+            window.scrollTo({ top: activePanel.offsetTop - 80, behavior: "smooth" });
+        }
     }
+    window.switchTab = switchTab;
 
     tabButtons.forEach(btn => {
         btn.addEventListener("click", () => {
@@ -184,7 +194,7 @@
     }
 
     // ========================================================
-    // TOOL 1: ✂️ ADVANCED AI BG REMOVER & PHOTOROOM STUDIO PRO
+    // TOOL 1: ✂️ ADVANCED AI BG REMOVER & PRODUCT STUDIO PRO
     // ========================================================
     const bgDropzone = document.getElementById("bgDropzone");
     const bgFileInput = document.getElementById("bgFileInput");
@@ -199,6 +209,26 @@
     const bgDownloadBtn = document.getElementById("bgDownloadBtn");
     const bgFileInfo = document.getElementById("bgFileInfo");
     const bgSendToIdBtn = document.getElementById("bgSendToIdBtn");
+
+    // Mode Selector (Auto AI vs Portrait Hair vs Manual Interactive)
+    const bgModeAutoBtn = document.getElementById("bgModeAutoBtn");
+    const bgModePortraitBtn = document.getElementById("bgModePortraitBtn");
+    const bgModeManualBtn = document.getElementById("bgModeManualBtn");
+    let bgUploadMode = "auto_general"; // "auto_general", "auto_portrait", "interactive_scribble"
+
+    // Touch-Up Toolbar Controls
+    const bgTouchupPanBtn = document.getElementById("bgTouchupPanBtn");
+    const bgTouchupRestoreBtn = document.getElementById("bgTouchupRestoreBtn");
+    const bgTouchupEraseBtn = document.getElementById("bgTouchupEraseBtn");
+    const bgTouchupWandBtn = document.getElementById("bgTouchupWandBtn");
+    const bgTouchupSize = document.getElementById("bgTouchupBrushSize") || document.getElementById("bgTouchupSize");
+    const bgTouchupSizeVal = document.getElementById("bgTouchupBrushSizeVal") || document.getElementById("bgTouchupSizeVal");
+    const bgWandToleranceContainer = document.getElementById("bgWandToleranceContainer");
+    const bgWandTolerance = document.getElementById("bgWandTolerance");
+    const bgWandToleranceVal = document.getElementById("bgWandToleranceVal");
+    const bgCompareBtn = document.getElementById("bgCompareBtn");
+    const bgTouchupUndoBtn = document.getElementById("bgTouchupUndoBtn");
+    const bgTouchupResetBtn = document.getElementById("bgTouchupResetBtn");
 
     // Sliders & Toggles
     const bgScaleRange = document.getElementById("bgScaleRange");
@@ -219,7 +249,31 @@
     const bgBackdropBlur = document.getElementById("bgBackdropBlur");
     const bgBackdropBlurVal = document.getElementById("bgBackdropBlurVal");
 
-    let currentCutoutImg = null;
+    // Product Reflection & Shadow Controls
+    const bgReflectionToggle = document.getElementById("bgReflectionToggle");
+    const bgReflectionHeight = document.getElementById("bgReflectionHeight");
+    const bgReflectionHeightVal = document.getElementById("bgReflectionHeightVal");
+    const bgReflectionOpacity = document.getElementById("bgReflectionOpacity");
+    const bgReflectionOpacityVal = document.getElementById("bgReflectionOpacityVal");
+    const bgFloorShadowToggle = document.getElementById("bgFloorShadowToggle");
+    const bgFloorShadowWidth = document.getElementById("bgFloorShadowWidth");
+    const bgFloorShadowWidthVal = document.getElementById("bgFloorShadowWidthVal");
+    const bgFloorShadowOpacity = document.getElementById("bgFloorShadowOpacity");
+    const bgFloorShadowOpacityVal = document.getElementById("bgFloorShadowOpacityVal");
+
+    // 3D Text Overlay Controls
+    const bgTextToggle = document.getElementById("bgTextToggle") || document.getElementById("bgTextOverlayToggle");
+    const bgTextInput = document.getElementById("bgTextInput");
+    const bgTextColor = document.getElementById("bgTextColor");
+    const bgTextStrokeColor = document.getElementById("bgTextStrokeColor");
+    const bgTextSize = document.getElementById("bgTextSize");
+    const bgTextSizeVal = document.getElementById("bgTextSizeVal");
+    const bgTextLayerOrder = document.getElementById("bgTextLayerOrder");
+
+    // Core Canvas & Cutout Memory
+    let currentSourceImg = null;       // Original source image
+    let currentCutoutCanvas = null;    // Dynamic offscreen canvas holding alpha cutout
+    let initialCutoutCanvas = null;    // Initial state for reset
     let currentCutoutBlob = null;
     let currentBgMode = "transparent"; // "transparent", "color", "gradient", "image"
     let currentBgColor = "#FFFFFF";
@@ -232,6 +286,160 @@
     let bgIsDraggingSubject = false;
     let bgDragStartX = 0;
     let bgDragStartY = 0;
+
+    // Manual Touch-up State
+    let bgCurrentTouchupTool = "none"; // "none" (Pan/Move), "erase", "restore", "wand"
+    let bgTouchupHistory = [];
+    let bgIsPaintingTouchup = false;
+    let bgLastTouchupX = null;
+    let bgLastTouchupY = null;
+
+    // Mode Selector Handler (Auto AI vs Portrait Hair vs Manual Cutout)
+    function setBgUploadMode(mode) {
+        bgUploadMode = mode;
+        const modeList = [
+            { btn: bgModeAutoBtn, mode: "auto_general" },
+            { btn: bgModePortraitBtn, mode: "auto_portrait" },
+            { btn: bgModeManualBtn, mode: "interactive_scribble" }
+        ];
+
+        modeList.forEach(item => {
+            if (!item.btn) return;
+            if (item.mode === mode) {
+                item.btn.className = "bg-mode-btn active flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all bg-gradient-to-r from-emerald-500 to-cyan-500 text-slate-950 shadow-glow-emerald flex items-center justify-center gap-1.5";
+            } else {
+                item.btn.className = "bg-mode-btn flex-1 py-2 px-3 rounded-xl text-xs font-semibold transition-all bg-slate-900 text-slate-300 hover:text-white flex items-center justify-center gap-1.5";
+            }
+        });
+
+        if (mode === "auto_general") {
+            showToast("Mode: Auto AI (People & Products) — Fast ONNX neural cutout.", "info");
+        } else if (mode === "auto_portrait") {
+            showToast("Mode: Portrait Hair Pro — Deep learning hair & face matting.", "info");
+        } else if (mode === "interactive_scribble") {
+            showToast("Mode: Manual Brush Cutout — Interactive paint & erase on canvas.", "info");
+        }
+    }
+
+    if (bgModeAutoBtn) bgModeAutoBtn.addEventListener("click", () => setBgUploadMode("auto_general"));
+    if (bgModePortraitBtn) bgModePortraitBtn.addEventListener("click", () => setBgUploadMode("auto_portrait"));
+    if (bgModeManualBtn) bgModeManualBtn.addEventListener("click", () => setBgUploadMode("interactive_scribble"));
+
+    // Touchup Tools Switching
+    function setTouchupTool(tool) {
+        if (tool === "pan") tool = "none";
+        bgCurrentTouchupTool = tool;
+
+        const tools = [
+            { btn: bgTouchupPanBtn, id: "none" },
+            { btn: bgTouchupRestoreBtn, id: "restore" },
+            { btn: bgTouchupEraseBtn, id: "erase" },
+            { btn: bgTouchupWandBtn, id: "wand" }
+        ];
+
+        tools.forEach(t => {
+            if (!t.btn) return;
+            if (t.id === tool) {
+                t.btn.classList.add("bg-emerald-500/20", "border-emerald-500", "text-emerald-300", "shadow-sm");
+                t.btn.classList.remove("border-slate-800", "bg-slate-900", "text-slate-300");
+            } else {
+                t.btn.classList.remove("bg-emerald-500/20", "border-emerald-500", "text-emerald-300", "shadow-sm");
+                t.btn.classList.add("border-slate-800", "bg-slate-900", "text-slate-300");
+            }
+        });
+
+        if (bgWandToleranceContainer) {
+            if (tool === "wand") {
+                bgWandToleranceContainer.classList.remove("hidden");
+            } else {
+                bgWandToleranceContainer.classList.add("hidden");
+            }
+        }
+
+        if (tool === "none") {
+            showToast("Pan Mode: Drag subject to position.", "info");
+        } else if (tool === "restore") {
+            showToast("🟢 Restore Brush (ආපහු ගන්න): Paint to restore original pixels.", "info");
+        } else if (tool === "erase") {
+            showToast("🔴 Erase Brush (මකන්න): Paint to erase unwanted background spots.", "info");
+        } else if (tool === "wand") {
+            showToast("🪄 Magic Color Eraser (එක පාටක් මකන්න): Click any pixel to flood erase.", "info");
+        }
+    }
+
+    if (bgTouchupPanBtn) bgTouchupPanBtn.addEventListener("click", () => setTouchupTool("none"));
+    if (bgTouchupRestoreBtn) bgTouchupRestoreBtn.addEventListener("click", () => setTouchupTool("restore"));
+    if (bgTouchupEraseBtn) bgTouchupEraseBtn.addEventListener("click", () => setTouchupTool("erase"));
+    if (bgTouchupWandBtn) bgTouchupWandBtn.addEventListener("click", () => setTouchupTool("wand"));
+
+    // Hold Compare Button
+    if (bgCompareBtn) {
+        const showOriginal = (e) => {
+            if (e) e.preventDefault();
+            if (!currentSourceImg || !bgCompositeCanvas) return;
+            const ctx = bgCompositeCanvas.getContext("2d");
+            const w = bgCompositeCanvas.width;
+            const h = bgCompositeCanvas.height;
+            ctx.clearRect(0, 0, w, h);
+            ctx.drawImage(currentSourceImg, 0, 0, w, h);
+        };
+        const restoreComposite = (e) => {
+            if (e) e.preventDefault();
+            renderBgComposite();
+        };
+
+        bgCompareBtn.addEventListener("mousedown", showOriginal);
+        bgCompareBtn.addEventListener("mouseup", restoreComposite);
+        bgCompareBtn.addEventListener("mouseleave", restoreComposite);
+        bgCompareBtn.addEventListener("touchstart", showOriginal, { passive: false });
+        bgCompareBtn.addEventListener("touchend", restoreComposite);
+        bgCompareBtn.addEventListener("touchcancel", restoreComposite);
+    }
+
+    if (bgTouchupSize && bgTouchupSizeVal) {
+        bgTouchupSize.addEventListener("input", (e) => {
+            bgTouchupSizeVal.textContent = `${e.target.value}px`;
+        });
+    }
+
+    if (bgWandTolerance && bgWandToleranceVal) {
+        bgWandTolerance.addEventListener("input", (e) => {
+            bgWandToleranceVal.textContent = e.target.value;
+        });
+    }
+
+    function saveCutoutHistory() {
+        if (!currentCutoutCanvas) return;
+        const ctx = currentCutoutCanvas.getContext("2d");
+        bgTouchupHistory.push(ctx.getImageData(0, 0, currentCutoutCanvas.width, currentCutoutCanvas.height));
+        if (bgTouchupHistory.length > 10) bgTouchupHistory.shift();
+    }
+
+    if (bgTouchupUndoBtn) {
+        bgTouchupUndoBtn.addEventListener("click", () => {
+            if (!currentCutoutCanvas || bgTouchupHistory.length === 0) {
+                showToast("No touch-up actions to undo.", "warning");
+                return;
+            }
+            const prev = bgTouchupHistory.pop();
+            const ctx = currentCutoutCanvas.getContext("2d");
+            ctx.putImageData(prev, 0, 0);
+            renderBgComposite();
+            showToast("Undo successful.", "info");
+        });
+    }
+
+    if (bgTouchupResetBtn) {
+        bgTouchupResetBtn.addEventListener("click", () => {
+            if (!currentCutoutCanvas || !initialCutoutCanvas) return;
+            const ctx = currentCutoutCanvas.getContext("2d");
+            ctx.clearRect(0, 0, currentCutoutCanvas.width, currentCutoutCanvas.height);
+            ctx.drawImage(initialCutoutCanvas, 0, 0);
+            bgTouchupHistory = [];
+            renderBgComposite();
+            showToast("Cutout reset to initial state.", "info");
+        });
+    }
 
     if (bgDropzone && bgFileInput) {
         bgDropzone.addEventListener("click", () => bgFileInput.click());
@@ -263,6 +471,16 @@
         });
     }
 
+    function initCutoutCanvases(width, height) {
+        currentCutoutCanvas = document.createElement("canvas");
+        currentCutoutCanvas.width = width;
+        currentCutoutCanvas.height = height;
+
+        initialCutoutCanvas = document.createElement("canvas");
+        initialCutoutCanvas.width = width;
+        initialCutoutCanvas.height = height;
+    }
+
     function handleBgFile(file) {
         if (!file.type.startsWith("image/")) {
             showToast("Please upload a valid image file (PNG, JPG, or WEBP).", "error");
@@ -273,54 +491,103 @@
             return;
         }
 
-        startProgress("Removing Background with AI...", "Matting edges and separating foreground subject");
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            currentSourceImg = new Image();
+            currentSourceImg.onload = () => {
+                const w = currentSourceImg.naturalWidth;
+                const h = currentSourceImg.naturalHeight;
+                initCutoutCanvases(w, h);
 
-        const formData = new FormData();
-        formData.append("image", file);
+                if (bgUploadMode === "interactive_scribble") {
+                    // Manual Mode: Load original image directly for interactive painting/wand cut
+                    const ctx = currentCutoutCanvas.getContext("2d");
+                    ctx.drawImage(currentSourceImg, 0, 0);
 
-        fetch("/api/image/remove-bg", {
-            method: "POST",
-            body: formData
-        })
-        .then(async (response) => {
-            if (!response.ok) {
-                const err = await response.json().catch(() => ({ detail: "Background removal failed" }));
-                throw new Error(err.detail || "Server error");
-            }
-            return response.blob();
-        })
-        .then(blob => {
-            currentCutoutBlob = blob;
-            const imgUrl = URL.createObjectURL(blob);
-            currentCutoutImg = new Image();
-            currentCutoutImg.onload = () => {
-                completeProgress(() => {
+                    const initCtx = initialCutoutCanvas.getContext("2d");
+                    initCtx.drawImage(currentSourceImg, 0, 0);
+
                     bgUploadArea.classList.add("hidden");
                     bgEditorArea.classList.remove("hidden");
                     bgSubjectPanX = 0;
                     bgSubjectPanY = 0;
+                    setTouchupTool("erase");
                     renderBgComposite();
                     if (bgFileInfo) {
-                        bgFileInfo.textContent = `HD PNG Cutout • ${currentCutoutImg.naturalWidth} × ${currentCutoutImg.naturalHeight} px • ${formatBytes(blob.size)}`;
+                        bgFileInfo.textContent = `Manual Interactive Cutout • ${w} × ${h} px • ${formatBytes(file.size)}`;
                     }
-                    showToast("Background isolated successfully!", "success");
-                });
+                    showToast("Image loaded in Manual Cutout mode! Use Erase Brush or Magic Color Eraser.", "success");
+                } else {
+                    // Real AI Deep Learning Mode (rembg ONNX session with u2netp or u2net_human_seg)
+                    const isPortrait = bgUploadMode === "auto_portrait";
+                    const pTitle = isPortrait ? "AI Portrait Hair Matting..." : "AI Background Segmentation...";
+                    const pSub = isPortrait
+                        ? "Running u2net_human_seg Deep Learning model for clean hair & skin borders"
+                        : "Running u2netp lightweight ONNX neural engine with razor-sharp feathering";
+
+                    startProgress(pTitle, pSub);
+
+                    const formData = new FormData();
+                    formData.append("image", file);
+                    formData.append("mode", bgUploadMode);
+
+                    fetch("/api/image/remove-bg", {
+                        method: "POST",
+                        body: formData
+                    })
+                    .then(async (response) => {
+                        if (!response.ok) {
+                            const err = await response.json().catch(() => ({ detail: "Background removal failed" }));
+                            throw new Error(err.detail || "Server error");
+                        }
+                        return response.blob();
+                    })
+                    .then(blob => {
+                        currentCutoutBlob = blob;
+                        const cutoutImg = new Image();
+                        cutoutImg.onload = () => {
+                            const ctx = currentCutoutCanvas.getContext("2d");
+                            ctx.clearRect(0, 0, w, h);
+                            ctx.drawImage(cutoutImg, 0, 0, w, h);
+
+                            const initCtx = initialCutoutCanvas.getContext("2d");
+                            initCtx.clearRect(0, 0, w, h);
+                            initCtx.drawImage(cutoutImg, 0, 0, w, h);
+
+                            completeProgress(() => {
+                                bgUploadArea.classList.add("hidden");
+                                bgEditorArea.classList.remove("hidden");
+                                bgSubjectPanX = 0;
+                                bgSubjectPanY = 0;
+                                setTouchupTool("none");
+                                renderBgComposite();
+                                if (bgFileInfo) {
+                                    const modelLabel = isPortrait ? "Portrait Hair Pro AI" : "Auto AI Deep Neural Cutout";
+                                    bgFileInfo.textContent = `${modelLabel} • ${w} × ${h} px • ${formatBytes(blob.size)}`;
+                                }
+                                showToast("Deep Learning AI Cutout Complete! Edges are crisp & clean.", "success");
+                            });
+                        };
+                        cutoutImg.src = URL.createObjectURL(blob);
+                    })
+                    .catch(err => {
+                        hideProgress();
+                        showToast(err.message || "Background removal failed.", "error");
+                    });
+                }
             };
-            currentCutoutImg.src = imgUrl;
-        })
-        .catch(err => {
-            hideProgress();
-            showToast(err.message || "Background removal failed.", "error");
-        });
+            currentSourceImg.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
     }
 
-    // High-Precision Photoroom Composite Renderer
+    // High-Precision Photoroom Composite & E-Commerce Product Renderer
     function renderBgComposite() {
-        if (!currentCutoutImg || !bgCompositeCanvas) return;
+        if (!currentCutoutCanvas || !bgCompositeCanvas) return;
         const ctx = bgCompositeCanvas.getContext("2d");
 
-        const w = currentCutoutImg.naturalWidth;
-        const h = currentCutoutImg.naturalHeight;
+        const w = currentCutoutCanvas.width;
+        const h = currentCutoutCanvas.height;
 
         bgCompositeCanvas.width = w;
         bgCompositeCanvas.height = h;
@@ -339,7 +606,6 @@
             ctx.fillStyle = currentBgColor;
             ctx.fillRect(0, 0, w, h);
         } else if (currentBgMode === "gradient" && currentBgGradient) {
-            // Create gradient
             const grad = ctx.createLinearGradient(0, 0, w, h);
             if (currentBgGradient.includes("#064e3b")) {
                 grad.addColorStop(0, "#064e3b");
@@ -374,7 +640,102 @@
         const centerX = w / 2 + bgSubjectPanX;
         const centerY = h / 2 + bgSubjectPanY;
 
-        // 3. Draw 3D Realistic Drop Shadow (if enabled)
+        // 3. E-Commerce Floor Shadow / Studio Podium (if enabled)
+        if (bgFloorShadowToggle && bgFloorShadowToggle.checked) {
+            ctx.save();
+            const shadowY = centerY + (h * scaleVal) * 0.48;
+            const shadowWidthFactor = (bgFloorShadowWidth ? parseInt(bgFloorShadowWidth.value, 10) : 80) / 100;
+            const shadowOpacityFactor = (bgFloorShadowOpacity ? parseInt(bgFloorShadowOpacity.value, 10) : 50) / 100;
+            const rx = (w * scaleVal) * 0.42 * shadowWidthFactor;
+            const ry = (h * scaleVal) * 0.08 * shadowWidthFactor;
+
+            const sGrad = ctx.createRadialGradient(centerX, shadowY, 0, centerX, shadowY, rx);
+            sGrad.addColorStop(0, `rgba(0, 0, 0, ${Math.min(1, shadowOpacityFactor * 1.5)})`);
+            sGrad.addColorStop(0.5, `rgba(0, 0, 0, ${shadowOpacityFactor * 0.7})`);
+            sGrad.addColorStop(1, "rgba(0, 0, 0, 0)");
+
+            ctx.fillStyle = sGrad;
+            ctx.beginPath();
+            ctx.ellipse(centerX, shadowY, rx, ry, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+        }
+
+        // Helper: Draw 3D Text Overlay
+        function draw3DText() {
+            if (!bgTextToggle || !bgTextToggle.checked) return;
+            const text = bgTextInput ? bgTextInput.value.trim() : "";
+            if (!text) return;
+
+            const fSize = bgTextSize ? parseInt(bgTextSize.value, 10) : 48;
+            const tColor = bgTextColor ? bgTextColor.value : "#FFFFFF";
+            const sColor = bgTextStrokeColor ? bgTextStrokeColor.value : "#06b6d4";
+
+            ctx.save();
+            ctx.font = `900 ${fSize}px 'Outfit', 'Inter', sans-serif`;
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.lineJoin = "round";
+
+            const textY = centerY + (h * scaleVal) * 0.38;
+
+            // 3D Drop Shadow
+            ctx.shadowColor = "rgba(0, 0, 0, 0.85)";
+            ctx.shadowBlur = 12;
+            ctx.shadowOffsetX = 4;
+            ctx.shadowOffsetY = 6;
+
+            // Outline Stroke
+            ctx.lineWidth = Math.max(3, fSize * 0.08);
+            ctx.strokeStyle = sColor;
+            ctx.strokeText(text, centerX, textY);
+
+            // Fill Text
+            ctx.fillStyle = tColor;
+            ctx.fillText(text, centerX, textY);
+            ctx.restore();
+        }
+
+        // Draw Text Behind if order === 'behind'
+        if (bgTextLayerOrder && bgTextLayerOrder.value === "behind") {
+            draw3DText();
+        }
+
+        // 4. E-Commerce Mirror Reflection (Product Mode)
+        if (bgReflectionToggle && bgReflectionToggle.checked) {
+            const refHPercent = (bgReflectionHeight ? parseInt(bgReflectionHeight.value, 10) : 40) / 100;
+            const refOpacity = (bgReflectionOpacity ? parseInt(bgReflectionOpacity.value, 10) : 40) / 100;
+
+            const refCanvas = document.createElement("canvas");
+            refCanvas.width = w;
+            refCanvas.height = h;
+            const rCtx = refCanvas.getContext("2d");
+
+            // Vertically flipped image
+            rCtx.save();
+            rCtx.translate(0, h);
+            rCtx.scale(1, -1);
+            rCtx.drawImage(currentCutoutCanvas, 0, 0);
+            rCtx.restore();
+
+            // Apply fade gradient mask
+            rCtx.globalCompositeOperation = "destination-in";
+            const fGrad = rCtx.createLinearGradient(0, 0, 0, h * refHPercent);
+            fGrad.addColorStop(0, `rgba(0, 0, 0, ${refOpacity})`);
+            fGrad.addColorStop(1, "rgba(0, 0, 0, 0)");
+            rCtx.fillStyle = fGrad;
+            rCtx.fillRect(0, 0, w, h);
+
+            // Draw reflection beneath subject
+            ctx.save();
+            ctx.translate(centerX, centerY + (h * scaleVal) / 2);
+            ctx.rotate(rotateVal);
+            ctx.scale(scaleVal, scaleVal);
+            ctx.drawImage(refCanvas, -w / 2, 0, w, h);
+            ctx.restore();
+        }
+
+        // 5. Draw 3D Realistic Drop Shadow (if enabled)
         if (bgShadowToggle && bgShadowToggle.checked) {
             ctx.save();
             ctx.translate(centerX, centerY);
@@ -389,23 +750,22 @@
             ctx.shadowOffsetX = 12;
             ctx.shadowOffsetY = 18;
 
-            ctx.drawImage(currentCutoutImg, -w / 2, -h / 2, w, h);
+            ctx.drawImage(currentCutoutCanvas, -w / 2, -h / 2, w, h);
             ctx.restore();
         }
 
-        // 4. Draw YouTube Thumbnail / Product Outline (Stroke)
+        // 6. Draw YouTube Thumbnail / Product Outline (Stroke)
         if (bgStrokeToggle && bgStrokeToggle.checked) {
             const strokeW = parseInt(bgStrokeWidth.value, 10);
             const strokeColor = bgStrokeColor ? bgStrokeColor.value : "#FFFFFF";
 
             if (strokeW > 0) {
-                // Offscreen canvas for crisp silhouette outline
                 const offCanvas = document.createElement("canvas");
                 offCanvas.width = w;
                 offCanvas.height = h;
                 const offCtx = offCanvas.getContext("2d");
 
-                offCtx.drawImage(currentCutoutImg, 0, 0);
+                offCtx.drawImage(currentCutoutCanvas, 0, 0);
                 offCtx.globalCompositeOperation = "source-in";
                 offCtx.fillStyle = strokeColor;
                 offCtx.fillRect(0, 0, w, h);
@@ -415,7 +775,6 @@
                 ctx.rotate(rotateVal);
                 ctx.scale(scaleVal, scaleVal);
 
-                // Multi-angle silhouette stamp
                 const steps = 16;
                 for (let i = 0; i < steps; i++) {
                     const angle = (i * 2 * Math.PI) / steps;
@@ -427,7 +786,7 @@
             }
         }
 
-        // 5. Draw Subject Cutout with Edge Feathering
+        // 7. Draw Subject Cutout with Edge Feathering
         ctx.save();
         ctx.translate(centerX, centerY);
         ctx.rotate(rotateVal);
@@ -437,52 +796,229 @@
             ctx.filter = `blur(${featherVal}px)`;
         }
 
-        ctx.drawImage(currentCutoutImg, -w / 2, -h / 2, w, h);
+        ctx.drawImage(currentCutoutCanvas, -w / 2, -h / 2, w, h);
         ctx.restore();
+
+        // Draw Text In Front if order === 'front'
+        if (bgTextLayerOrder && bgTextLayerOrder.value === "front") {
+            draw3DText();
+        }
     }
 
-    // Drag / Pan Cutout on Canvas
+    // Coordinate Mapping Helper: Canvas screen coords to Cutout internal coords
+    function getCutoutCoords(e) {
+        if (!bgCompositeCanvas || !currentCutoutCanvas) return null;
+        const rect = bgCompositeCanvas.getBoundingClientRect();
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+
+        const canvasX = (clientX - rect.left) * (bgCompositeCanvas.width / rect.width);
+        const canvasY = (clientY - rect.top) * (bgCompositeCanvas.height / rect.height);
+
+        const w = currentCutoutCanvas.width;
+        const h = currentCutoutCanvas.height;
+        const scaleVal = (bgScaleRange ? parseInt(bgScaleRange.value, 10) : 100) / 100;
+        const rotateVal = (bgRotateRange ? parseInt(bgRotateRange.value, 10) : 0) * (Math.PI / 180);
+        const centerX = w / 2 + bgSubjectPanX;
+        const centerY = h / 2 + bgSubjectPanY;
+
+        // Invert pan
+        const dx = canvasX - centerX;
+        const dy = canvasY - centerY;
+
+        // Invert rotation
+        const rx = dx * Math.cos(-rotateVal) - dy * Math.sin(-rotateVal);
+        const ry = dx * Math.sin(-rotateVal) + dy * Math.cos(-rotateVal);
+
+        // Invert scale
+        const imgX = rx / scaleVal + w / 2;
+        const imgY = ry / scaleVal + h / 2;
+
+        return { imgX: Math.round(imgX), imgY: Math.round(imgY), canvasX, canvasY };
+    }
+
+    // Magic Wand BFS Flood-Fill Pixel Eraser
+    function runMagicWand(startX, startY, tolerance) {
+        if (!currentCutoutCanvas) return;
+        const ctx = currentCutoutCanvas.getContext("2d");
+        const w = currentCutoutCanvas.width;
+        const h = currentCutoutCanvas.height;
+
+        if (startX < 0 || startX >= w || startY < 0 || startY >= h) return;
+
+        saveCutoutHistory();
+        const imgData = ctx.getImageData(0, 0, w, h);
+        const data = imgData.data;
+
+        const startIdx = (startY * w + startX) * 4;
+        const targetR = data[startIdx];
+        const targetG = data[startIdx + 1];
+        const targetB = data[startIdx + 2];
+        const targetA = data[startIdx + 3];
+
+        if (targetA === 0) {
+            showToast("Clicked pixel is already transparent.", "info");
+            return;
+        }
+
+        const maxDiff = tolerance * 2.5;
+        const visited = new Uint8Array(w * h);
+        const queue = [startX, startY];
+        visited[startY * w + startX] = 1;
+
+        let erasedCount = 0;
+
+        while (queue.length > 0) {
+            const cy = queue.pop();
+            const cx = queue.pop();
+
+            const idx = (cy * w + cx) * 4;
+            data[idx + 3] = 0; // Erase to transparency
+            erasedCount++;
+
+            // 4-way neighbors
+            const neighbors = [
+                [cx + 1, cy],
+                [cx - 1, cy],
+                [cx, cy + 1],
+                [cx, cy - 1]
+            ];
+
+            for (let i = 0; i < 4; i++) {
+                const nx = neighbors[i][0];
+                const ny = neighbors[i][1];
+
+                if (nx >= 0 && nx < w && ny >= 0 && ny < h) {
+                    const nPos = ny * w + nx;
+                    if (!visited[nPos]) {
+                        visited[nPos] = 1;
+                        const nIdx = nPos * 4;
+                        if (data[nIdx + 3] > 0) {
+                            const dr = data[nIdx] - targetR;
+                            const dg = data[nIdx + 1] - targetG;
+                            const db = data[nIdx + 2] - targetB;
+                            const dist = Math.sqrt(dr * dr + dg * dg + db * db);
+
+                            if (dist <= maxDiff) {
+                                queue.push(nx, ny);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        ctx.putImageData(imgData, 0, 0);
+        renderBgComposite();
+        showToast(`Magic Wand erased ${erasedCount.toLocaleString()} matching background pixels!`, "success");
+    }
+
+    // Continuous Smooth Touchup Brush (Erase or Restore)
+    function drawBrushPoint(ctx, x, y, radius) {
+        if (bgCurrentTouchupTool === "erase") {
+            ctx.save();
+            ctx.globalCompositeOperation = "destination-out";
+            ctx.beginPath();
+            ctx.arc(x, y, radius, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+        } else if (bgCurrentTouchupTool === "restore" && currentSourceImg) {
+            ctx.save();
+            ctx.globalCompositeOperation = "source-over";
+            ctx.beginPath();
+            ctx.arc(x, y, radius, 0, Math.PI * 2);
+            ctx.clip();
+            ctx.drawImage(currentSourceImg, 0, 0);
+            ctx.restore();
+        }
+    }
+
+    function applyTouchupBrush(coords, isStart = false) {
+        if (!currentCutoutCanvas || !coords) return;
+        const ctx = currentCutoutCanvas.getContext("2d");
+        const radius = bgTouchupSize ? parseInt(bgTouchupSize.value, 10) : 25;
+
+        if (isStart || bgLastTouchupX === null) {
+            drawBrushPoint(ctx, coords.imgX, coords.imgY, radius);
+            bgLastTouchupX = coords.imgX;
+            bgLastTouchupY = coords.imgY;
+        } else {
+            const dist = Math.hypot(coords.imgX - bgLastTouchupX, coords.imgY - bgLastTouchupY);
+            const stepSize = Math.max(2, radius * 0.35);
+            const steps = Math.max(1, Math.ceil(dist / stepSize));
+            for (let s = 1; s <= steps; s++) {
+                const ix = bgLastTouchupX + (coords.imgX - bgLastTouchupX) * (s / steps);
+                const iy = bgLastTouchupY + (coords.imgY - bgLastTouchupY) * (s / steps);
+                drawBrushPoint(ctx, Math.round(ix), Math.round(iy), radius);
+            }
+            bgLastTouchupX = coords.imgX;
+            bgLastTouchupY = coords.imgY;
+        }
+        renderBgComposite();
+    }
+
+    // Canvas Mouse & Touch Interactions (Touch-Up vs Pan Subject)
     if (bgCompositeCanvas) {
-        function getCanvasPanCoords(e) {
-            const rect = bgCompositeCanvas.getBoundingClientRect();
-            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-            const scaleX = bgCompositeCanvas.width / rect.width;
-            const scaleY = bgCompositeCanvas.height / rect.height;
-            return {
-                x: (clientX - rect.left) * scaleX,
-                y: (clientY - rect.top) * scaleY
-            };
-        }
+        function onPointerStart(e) {
+            const coords = getCutoutCoords(e);
+            if (!coords) return;
 
-        function onPanStart(e) {
+            if (bgCurrentTouchupTool === "wand") {
+                const tol = bgWandTolerance ? parseInt(bgWandTolerance.value, 10) : 25;
+                runMagicWand(coords.imgX, coords.imgY, tol);
+                e.preventDefault();
+                return;
+            }
+
+            if (bgCurrentTouchupTool === "erase" || bgCurrentTouchupTool === "restore") {
+                bgIsPaintingTouchup = true;
+                saveCutoutHistory();
+                bgLastTouchupX = coords.imgX;
+                bgLastTouchupY = coords.imgY;
+                applyTouchupBrush(coords, true);
+                e.preventDefault();
+                return;
+            }
+
+            // Default: Pan / Move Subject
             bgIsDraggingSubject = true;
-            const p = getCanvasPanCoords(e);
-            bgDragStartX = p.x - bgSubjectPanX;
-            bgDragStartY = p.y - bgSubjectPanY;
+            bgDragStartX = coords.canvasX - bgSubjectPanX;
+            bgDragStartY = coords.canvasY - bgSubjectPanY;
             e.preventDefault();
         }
 
-        function onPanMove(e) {
-            if (!bgIsDraggingSubject) return;
-            const p = getCanvasPanCoords(e);
-            bgSubjectPanX = p.x - bgDragStartX;
-            bgSubjectPanY = p.y - bgDragStartY;
-            renderBgComposite();
-            e.preventDefault();
+        function onPointerMove(e) {
+            const coords = getCutoutCoords(e);
+            if (!coords) return;
+
+            if (bgIsPaintingTouchup) {
+                applyTouchupBrush(coords, false);
+                e.preventDefault();
+                return;
+            }
+
+            if (bgIsDraggingSubject) {
+                bgSubjectPanX = coords.canvasX - bgDragStartX;
+                bgSubjectPanY = coords.canvasY - bgDragStartY;
+                renderBgComposite();
+                e.preventDefault();
+            }
         }
 
-        function onPanEnd() {
+        function onPointerEnd() {
+            bgIsPaintingTouchup = false;
             bgIsDraggingSubject = false;
+            bgLastTouchupX = null;
+            bgLastTouchupY = null;
         }
 
-        bgCompositeCanvas.addEventListener("mousedown", onPanStart);
-        window.addEventListener("mousemove", onPanMove);
-        window.addEventListener("mouseup", onPanEnd);
+        bgCompositeCanvas.addEventListener("mousedown", onPointerStart);
+        window.addEventListener("mousemove", onPointerMove);
+        window.addEventListener("mouseup", onPointerEnd);
 
-        bgCompositeCanvas.addEventListener("touchstart", onPanStart, { passive: false });
-        window.addEventListener("touchmove", onPanMove, { passive: false });
-        window.addEventListener("touchend", onPanEnd);
+        bgCompositeCanvas.addEventListener("touchstart", onPointerStart, { passive: false });
+        window.addEventListener("touchmove", onPointerMove, { passive: false });
+        window.addEventListener("touchend", onPointerEnd);
     }
 
     if (bgCenterSubjectBtn) {
@@ -549,6 +1085,69 @@
         });
     }
 
+    // Product Reflection & Shadow Listeners
+    if (bgReflectionToggle) {
+        bgReflectionToggle.addEventListener("change", (e) => {
+            if (bgReflectionHeight) bgReflectionHeight.disabled = !e.target.checked;
+            if (bgReflectionOpacity) bgReflectionOpacity.disabled = !e.target.checked;
+            renderBgComposite();
+        });
+    }
+    if (bgReflectionHeight && bgReflectionHeightVal) {
+        bgReflectionHeight.addEventListener("input", (e) => {
+            bgReflectionHeightVal.textContent = `${e.target.value}%`;
+            renderBgComposite();
+        });
+    }
+    if (bgReflectionOpacity && bgReflectionOpacityVal) {
+        bgReflectionOpacity.addEventListener("input", (e) => {
+            bgReflectionOpacityVal.textContent = `${e.target.value}%`;
+            renderBgComposite();
+        });
+    }
+    if (bgFloorShadowToggle) {
+        bgFloorShadowToggle.addEventListener("change", (e) => {
+            if (bgFloorShadowWidth) bgFloorShadowWidth.disabled = !e.target.checked;
+            if (bgFloorShadowOpacity) bgFloorShadowOpacity.disabled = !e.target.checked;
+            renderBgComposite();
+        });
+    }
+    if (bgFloorShadowWidth && bgFloorShadowWidthVal) {
+        bgFloorShadowWidth.addEventListener("input", (e) => {
+            bgFloorShadowWidthVal.textContent = `${e.target.value}%`;
+            renderBgComposite();
+        });
+    }
+    if (bgFloorShadowOpacity && bgFloorShadowOpacityVal) {
+        bgFloorShadowOpacity.addEventListener("input", (e) => {
+            bgFloorShadowOpacityVal.textContent = `${e.target.value}%`;
+            renderBgComposite();
+        });
+    }
+
+    // 3D Text Overlay Listeners
+    if (bgTextToggle) {
+        bgTextToggle.addEventListener("change", (e) => {
+            const ctrls = document.getElementById("bgTextControls");
+            if (ctrls) {
+                ctrls.classList.toggle("opacity-50", !e.target.checked);
+                ctrls.classList.toggle("pointer-events-none", !e.target.checked);
+            }
+            if (bgTextLayerOrder) bgTextLayerOrder.disabled = !e.target.checked;
+            renderBgComposite();
+        });
+    }
+    if (bgTextInput) bgTextInput.addEventListener("input", renderBgComposite);
+    if (bgTextColor) bgTextColor.addEventListener("input", renderBgComposite);
+    if (bgTextStrokeColor) bgTextStrokeColor.addEventListener("input", renderBgComposite);
+    if (bgTextSize && bgTextSizeVal) {
+        bgTextSize.addEventListener("input", (e) => {
+            bgTextSizeVal.textContent = `${e.target.value}px`;
+            renderBgComposite();
+        });
+    }
+    if (bgTextLayerOrder) bgTextLayerOrder.addEventListener("change", renderBgComposite);
+
     bgPresetBtns.forEach(btn => {
         btn.addEventListener("click", () => {
             bgPresetBtns.forEach(b => b.classList.remove("border-emerald-500", "bg-emerald-500/10", "text-emerald-400"));
@@ -601,8 +1200,11 @@
             bgEditorArea.classList.add("hidden");
             bgUploadArea.classList.remove("hidden");
             if (bgFileInput) bgFileInput.value = "";
-            currentCutoutImg = null;
+            currentSourceImg = null;
+            currentCutoutCanvas = null;
+            initialCutoutCanvas = null;
             currentCutoutBlob = null;
+            bgTouchupHistory = [];
         });
     }
 
@@ -613,7 +1215,7 @@
                 if (!blob) return;
                 const link = document.createElement("a");
                 link.href = URL.createObjectURL(blob);
-                link.download = currentBgMode === "transparent" ? "supiristudio_cutout.png" : "supiristudio_photoroom_pro.png";
+                link.download = currentBgMode === "transparent" ? "supiristudio_cutout.png" : "supiristudio_product_studio.png";
                 document.body.appendChild(link);
                 link.click();
                 document.body.removeChild(link);
@@ -624,9 +1226,12 @@
 
     if (bgSendToIdBtn) {
         bgSendToIdBtn.addEventListener("click", () => {
-            if (!currentCutoutBlob) return;
-            switchTab("panelIdPhoto");
-            loadIdPhotoFromBlob(currentCutoutBlob);
+            if (!currentCutoutCanvas) return;
+            currentCutoutCanvas.toBlob((blob) => {
+                if (!blob) return;
+                switchTab("tab-passport");
+                loadIdPhotoFromBlob(blob);
+            }, "image/png");
         });
     }
 
@@ -654,6 +1259,10 @@
     const wmFileInfo = document.getElementById("wmFileInfo");
 
     // Tools & Algos
+    const wmModeObjectBtn = document.getElementById("wmModeObjectBtn");
+    const wmModeWatermarkBtn = document.getElementById("wmModeWatermarkBtn");
+    let wmStudioMode = "object"; // "object" or "watermark"
+
     const wmToolBtns = document.querySelectorAll(".wm-tool-btn");
     const wmAlgoBtns = document.querySelectorAll(".wm-algo-btn");
     const wmZoomFit = document.getElementById("wmZoomFit");
@@ -676,6 +1285,25 @@
     // History stack
     let wmUndoStack = [];
     let wmRedoStack = [];
+
+    // Mode Switcher Listeners
+    if (wmModeObjectBtn && wmModeWatermarkBtn) {
+        wmModeObjectBtn.addEventListener("click", () => {
+            wmStudioMode = "object";
+            wmModeObjectBtn.className = "flex-1 py-1.5 px-3 rounded-lg text-xs font-bold transition-all bg-gradient-to-r from-emerald-500 to-cyan-500 text-slate-950 shadow-glow-emerald";
+            wmModeWatermarkBtn.className = "flex-1 py-1.5 px-3 rounded-lg text-xs font-semibold text-slate-400 hover:text-white transition-all";
+            if (wmProcessBtn) wmProcessBtn.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles mr-2"></i> Erase Object Cleanly';
+            showToast("Magic Object Remover mode active: Select people, photobombers, or objects to erase.", "info");
+        });
+
+        wmModeWatermarkBtn.addEventListener("click", () => {
+            wmStudioMode = "watermark";
+            wmModeWatermarkBtn.className = "flex-1 py-1.5 px-3 rounded-lg text-xs font-bold transition-all bg-gradient-to-r from-emerald-500 to-cyan-500 text-slate-950 shadow-glow-emerald";
+            wmModeObjectBtn.className = "flex-1 py-1.5 px-3 rounded-lg text-xs font-semibold text-slate-400 hover:text-white transition-all";
+            if (wmProcessBtn) wmProcessBtn.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles mr-2"></i> Erase Watermark & Logo';
+            showToast("Watermark & Logo Eraser mode active: Select stamps, text, or logos to erase.", "info");
+        });
+    }
 
     if (wmDropzone && wmFileInput) {
         wmDropzone.addEventListener("click", () => wmFileInput.click());
@@ -1077,13 +1705,16 @@
                 skin_blemish: "Portrait / Skin Blemish"
             };
 
-            startProgress(`Inpainting with ${algoLabels[wmAlgo]}...`, "Neural texture synthesis & frequency reconstruction");
+            const inpaintMode = wmStudioMode === "object" ? "object_remove" : (wmAlgo || "watermark_erase");
+            const progTitle = wmStudioMode === "object" ? "Erasing Object with AI Synthesis..." : `Inpainting Watermark (${algoLabels[wmAlgo] || "Sharp"})...`;
+
+            startProgress(progTitle, "Neural texture synthesis & 5px dilated boundary feathering");
 
             maskCanvas.toBlob((maskBlob) => {
                 const formData = new FormData();
                 formData.append("image", wmOriginalFile);
                 formData.append("mask", maskBlob, "mask.png");
-                formData.append("mode", wmAlgo);
+                formData.append("mode", inpaintMode);
 
                 fetch("/api/image/inpaint", {
                     method: "POST",
@@ -1111,9 +1742,10 @@
                             wmReadyCard.classList.remove("hidden");
                             if (wmCompareBtn) wmCompareBtn.classList.remove("hidden");
                             if (wmFileInfo) {
-                                wmFileInfo.textContent = `Watermark Erased • ${algoLabels[wmAlgo]} • ${wmCleanResultImg.naturalWidth} × ${wmCleanResultImg.naturalHeight} px • ${formatBytes(blob.size)}`;
+                                const modeLabel = wmStudioMode === "object" ? "Object Removed Cleanly" : "Watermark & Logo Erased";
+                                wmFileInfo.textContent = `${modeLabel} • Dilated Matting • ${wmCleanResultImg.naturalWidth} × ${wmCleanResultImg.naturalHeight} px • ${formatBytes(blob.size)}`;
                             }
-                            showToast("Watermark erased cleanly!", "success");
+                            showToast(wmStudioMode === "object" ? "Object erased cleanly!" : "Watermark erased cleanly!", "success");
                         });
                     };
                     wmCleanResultImg.src = URL.createObjectURL(blob);
@@ -1140,7 +1772,7 @@
     }
 
     // ========================================================
-    // TOOL 3: 🎬 VIDEO WATERMARK STUDIO (BLUR/ERASE vs CROP MODE)
+    // TOOL 3: 🎬 VIDEO WATERMARK STUDIO + GIF & COMPRESSOR
     // ========================================================
     const videoDropzone = document.getElementById("videoDropzone");
     const videoFileInput = document.getElementById("videoFileInput");
@@ -1153,20 +1785,37 @@
     const videoProcessBtnText = document.getElementById("videoProcessBtnText");
     const videoReadyCard = document.getElementById("videoReadyCard");
     const videoResultPlayer = document.getElementById("videoResultPlayer");
+    const videoResultGif = document.getElementById("videoResultGif");
     const videoDownloadBtn = document.getElementById("videoDownloadBtn");
     const videoProcessAnotherBtn = document.getElementById("videoProcessAnotherBtn");
     const videoFileInfo = document.getElementById("videoFileInfo");
 
-    // Primary Mode Switchers
-    const videoModeBlurBtn = document.getElementById("videoModeBlurBtn");
-    const videoModeCropBtn = document.getElementById("videoModeCropBtn");
-    const videoModeInstructionText = document.getElementById("videoModeInstructionText");
+    // Custom Video Player Controls
+    const videoPlayBtn = document.getElementById("videoPlayBtn") || document.getElementById("videoPlayPauseBtn");
+    const videoPlayIcon = document.getElementById("videoPlayIcon");
+    const videoTimelineScrubber = document.getElementById("videoTimelineScrubber");
+    const videoTimeDisplay = document.getElementById("videoTimeDisplay");
+    const videoMuteBtn = document.getElementById("videoMuteBtn") || document.getElementById("videoAudioToggleBtn");
+    const videoMuteIcon = document.getElementById("videoMuteIcon") || document.getElementById("videoAudioIcon");
+    const videoRestartBtn = document.getElementById("videoRestartBtn");
+
+    // 4 Sub-Tool Switchers
+    const videoSubtoolEraseBtn = document.getElementById("videoSubtoolEraseBtn") || document.getElementById("videoModeBlurBtn");
+    const videoSubtoolCropBtn = document.getElementById("videoSubtoolCropBtn") || document.getElementById("videoModeCropBtn");
+    const videoSubtoolGifBtn = document.getElementById("videoSubtoolGifBtn") || document.getElementById("videoModeGifBtn");
+    const videoSubtoolCompressBtn = document.getElementById("videoSubtoolCompressBtn") || document.getElementById("videoModeCompressBtn");
+
+    // 4 Sub-Tool Control Panels
+    const videoSubtoolBlurPanel = document.getElementById("videoSubtoolBlurPanel") || document.getElementById("videoBlurControlsArea");
+    const videoSubtoolCropPanel = document.getElementById("videoSubtoolCropPanel") || document.getElementById("videoCropControlsArea");
+    const videoSubtoolGifPanel = document.getElementById("videoSubtoolGifPanel") || document.getElementById("videoGifControlsArea");
+    const videoSubtoolCompressPanel = document.getElementById("videoSubtoolCompressPanel") || document.getElementById("videoCompressControlsArea");
+
+    // Overlays
     const delogoBoxesOverlay = document.getElementById("delogoBoxesOverlay");
     const videoCropOverlay = document.getElementById("videoCropOverlay");
-    const videoBlurControlsArea = document.getElementById("videoBlurControlsArea");
-    const videoCropControlsArea = document.getElementById("videoCropControlsArea");
 
-    // Mode A Controls
+    // Mode A (Delogo/Blur) Controls
     const videoModeBtns = document.querySelectorAll(".video-mode-btn");
     const videoBlurIntensity = document.getElementById("videoBlurIntensity");
     const videoBlurIntensityVal = document.getElementById("videoBlurIntensityVal");
@@ -1196,7 +1845,7 @@
     let videoLogoFile = null;
     let videoTimeMode = "all"; // "all" or "custom"
 
-    // Mode B Controls
+    // Mode B (Crop) Controls
     const videoCropBox = document.getElementById("videoCropBox");
     const cropDimensionBadge = document.getElementById("cropDimensionBadge");
     const cropMaskTop = document.getElementById("cropMaskTop");
@@ -1204,6 +1853,16 @@
     const cropMaskLeft = document.getElementById("cropMaskLeft");
     const cropMaskRight = document.getElementById("cropMaskRight");
     const videoCropPresetBtns = document.querySelectorAll(".video-crop-preset-btn");
+
+    // Mode C (GIF) Controls
+    const videoGifStart = document.getElementById("videoGifStart");
+    const videoGifEnd = document.getElementById("videoGifEnd");
+    const videoGifFps = document.getElementById("videoGifFps");
+    const videoGifScale = document.getElementById("videoGifScale");
+
+    // Mode D (Compressor) Controls
+    const videoCompressCrf = document.getElementById("videoCompressCrf");
+    const videoCompressRes = document.getElementById("videoCompressRes");
 
     // Common Video Controls
     const videoRemoveOutro = document.getElementById("videoRemoveOutro");
@@ -1213,8 +1872,9 @@
 
     let currentVideoFile = null;
     let cleanVideoBlob = null;
-    let videoPrimaryMode = "erase"; // "erase" (Mode A) or "crop" (Mode B)
-    let videoRemovalMode = "delogo"; // "delogo", "blur", "pixelate"
+    let videoActiveSubtool = "erase"; // "erase", "crop", "gif", "compress"
+    let videoPrimaryMode = "erase";
+    let videoRemovalMode = "delogo";  // "delogo", "blur", "pixelate"
 
     // 4 Delogo Box Elements
     const delogoBoxes = [
@@ -1225,43 +1885,112 @@
     ];
     let activeBoxCount = 1;
 
-    // Switch between Mode A (Blur/Erase) and Mode B (Crop)
-    function setVideoPrimaryMode(mode) {
-        videoPrimaryMode = mode;
-        if (mode === "crop") {
-            videoModeCropBtn.className = "video-primary-mode-btn active flex-1 py-2.5 px-4 rounded-xl text-xs sm:text-sm font-bold transition-all duration-200 bg-gradient-to-r from-cyan-500 to-emerald-500 text-slate-950 shadow-glow-cyan flex items-center justify-center gap-2";
-            videoModeBlurBtn.className = "video-primary-mode-btn flex-1 py-2.5 px-4 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-200 bg-slate-900 text-slate-300 hover:text-white hover:bg-slate-800 flex items-center justify-center gap-2";
+    // Sub-Tool Switcher Handler
+    function setVideoSubtool(subtool) {
+        videoActiveSubtool = subtool;
+        videoPrimaryMode = (subtool === "crop") ? "crop" : "erase";
 
-            if (delogoBoxesOverlay) delogoBoxesOverlay.classList.add("hidden");
-            if (videoCropOverlay) videoCropOverlay.classList.remove("hidden");
-            if (videoBlurControlsArea) videoBlurControlsArea.classList.add("hidden");
-            if (videoCropControlsArea) videoCropControlsArea.classList.remove("hidden");
-            if (videoAddBoxBtn) videoAddBoxBtn.classList.add("hidden");
+        const subtoolBtns = [
+            { btn: videoSubtoolEraseBtn, mode: "erase" },
+            { btn: videoSubtoolCropBtn, mode: "crop" },
+            { btn: videoSubtoolGifBtn, mode: "gif" },
+            { btn: videoSubtoolCompressBtn, mode: "compress" }
+        ];
 
-            if (videoModeInstructionText) {
-                videoModeInstructionText.innerHTML = `<i class="fa-solid fa-crop text-cyan-400 mr-1"></i> Drag crop handles to crop out watermarks & borders:`;
+        subtoolBtns.forEach(item => {
+            if (!item.btn) return;
+            if (item.mode === subtool) {
+                item.btn.className = "video-subtool-btn active flex-1 py-2 px-2.5 rounded-xl text-xs font-bold transition-all bg-gradient-to-r from-emerald-500 to-cyan-500 text-slate-950 shadow-glow-cyan flex items-center justify-center gap-1.5";
+            } else {
+                item.btn.className = "video-subtool-btn flex-1 py-2 px-2.5 rounded-xl text-xs font-semibold transition-all bg-slate-900 text-slate-300 hover:text-white hover:bg-slate-800 flex items-center justify-center gap-1.5";
             }
-            if (videoProcessBtnText) videoProcessBtnText.textContent = "Crop Video & Export";
-            updateCropMasks();
-        } else {
-            videoModeBlurBtn.className = "video-primary-mode-btn active flex-1 py-2.5 px-4 rounded-xl text-xs sm:text-sm font-bold transition-all duration-200 bg-gradient-to-r from-cyan-500 to-emerald-500 text-slate-950 shadow-glow-cyan flex items-center justify-center gap-2";
-            videoModeCropBtn.className = "video-primary-mode-btn flex-1 py-2.5 px-4 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-200 bg-slate-900 text-slate-300 hover:text-white hover:bg-slate-800 flex items-center justify-center gap-2";
+        });
 
-            if (delogoBoxesOverlay) delogoBoxesOverlay.classList.remove("hidden");
-            if (videoCropOverlay) videoCropOverlay.classList.add("hidden");
-            if (videoBlurControlsArea) videoBlurControlsArea.classList.remove("hidden");
-            if (videoCropControlsArea) videoCropControlsArea.classList.add("hidden");
-            if (videoAddBoxBtn && activeBoxCount < 4) videoAddBoxBtn.classList.remove("hidden");
+        // Toggle Panels
+        if (videoSubtoolBlurPanel) videoSubtoolBlurPanel.classList.toggle("hidden", subtool !== "erase");
+        if (videoSubtoolCropPanel) videoSubtoolCropPanel.classList.toggle("hidden", subtool !== "crop");
+        if (videoSubtoolGifPanel) videoSubtoolGifPanel.classList.toggle("hidden", subtool !== "gif");
+        if (videoSubtoolCompressPanel) videoSubtoolCompressPanel.classList.toggle("hidden", subtool !== "compress");
 
-            if (videoModeInstructionText) {
-                videoModeInstructionText.innerHTML = `<i class="fa-solid fa-crop-simple text-cyan-400 mr-1"></i> Select watermark area(s) to blur or erase:`;
-            }
-            if (videoProcessBtnText) videoProcessBtnText.textContent = "Process Video Watermark";
+        // Toggle Overlay Layers
+        if (delogoBoxesOverlay) delogoBoxesOverlay.classList.toggle("hidden", subtool !== "erase");
+        if (videoCropOverlay) videoCropOverlay.classList.toggle("hidden", subtool !== "crop");
+        if (videoAddBoxBtn) videoAddBoxBtn.classList.toggle("hidden", subtool !== "erase" || activeBoxCount >= 4);
+
+        // Update Action Button Text
+        if (videoProcessBtnText) {
+            if (subtool === "erase") videoProcessBtnText.textContent = "Process Video Delogo";
+            else if (subtool === "crop") {
+                videoProcessBtnText.textContent = "Crop Video & Export";
+                updateCropMasks();
+            } else if (subtool === "gif") videoProcessBtnText.textContent = "Generate Looping GIF";
+            else if (subtool === "compress") videoProcessBtnText.textContent = "Compress WhatsApp Video";
         }
     }
 
-    if (videoModeBlurBtn) videoModeBlurBtn.addEventListener("click", () => setVideoPrimaryMode("erase"));
-    if (videoModeCropBtn) videoModeCropBtn.addEventListener("click", () => setVideoPrimaryMode("crop"));
+    if (videoSubtoolEraseBtn) videoSubtoolEraseBtn.addEventListener("click", () => setVideoSubtool("erase"));
+    if (videoSubtoolCropBtn) videoSubtoolCropBtn.addEventListener("click", () => setVideoSubtool("crop"));
+    if (videoSubtoolGifBtn) videoSubtoolGifBtn.addEventListener("click", () => setVideoSubtool("gif"));
+    if (videoSubtoolCompressBtn) videoSubtoolCompressBtn.addEventListener("click", () => setVideoSubtool("compress"));
+
+    // Custom Video Player Controls Handlers
+    function formatVideoTime(sec) {
+        if (isNaN(sec)) return "00:00";
+        const m = Math.floor(sec / 60);
+        const s = Math.floor(sec % 60);
+        return `${m < 10 ? "0" : ""}${m}:${s < 10 ? "0" : ""}${s}`;
+    }
+
+    if (videoPlayBtn && videoPreview) {
+        videoPlayBtn.addEventListener("click", () => {
+            if (videoPreview.paused || videoPreview.ended) {
+                videoPreview.play();
+                if (videoPlayIcon) videoPlayIcon.className = "fa-solid fa-pause text-emerald-400";
+            } else {
+                videoPreview.pause();
+                if (videoPlayIcon) videoPlayIcon.className = "fa-solid fa-play text-slate-200";
+            }
+        });
+
+        videoPreview.addEventListener("timeupdate", () => {
+            if (videoPreview.duration) {
+                const pct = (videoPreview.currentTime / videoPreview.duration) * 100;
+                if (videoTimelineScrubber) videoTimelineScrubber.value = pct;
+                if (videoTimeDisplay) {
+                    videoTimeDisplay.textContent = `${formatVideoTime(videoPreview.currentTime)} / ${formatVideoTime(videoPreview.duration)}`;
+                }
+            }
+        });
+
+        videoPreview.addEventListener("ended", () => {
+            if (videoPlayIcon) videoPlayIcon.className = "fa-solid fa-play text-slate-200";
+        });
+
+        if (videoTimelineScrubber) {
+            videoTimelineScrubber.addEventListener("input", (e) => {
+                if (videoPreview.duration) {
+                    videoPreview.currentTime = (parseFloat(e.target.value) / 100) * videoPreview.duration;
+                }
+            });
+        }
+
+        if (videoMuteBtn) {
+            videoMuteBtn.addEventListener("click", () => {
+                videoPreview.muted = !videoPreview.muted;
+                if (videoMuteIcon) {
+                    videoMuteIcon.className = videoPreview.muted ? "fa-solid fa-volume-xmark text-rose-400" : "fa-solid fa-volume-high text-slate-300";
+                }
+            });
+        }
+
+        if (videoRestartBtn) {
+            videoRestartBtn.addEventListener("click", () => {
+                videoPreview.currentTime = 0;
+                videoPreview.play();
+                if (videoPlayIcon) videoPlayIcon.className = "fa-solid fa-pause text-emerald-400";
+            });
+        }
+    }
 
     if (videoDropzone && videoFileInput) {
         videoDropzone.addEventListener("click", () => videoFileInput.click());
@@ -1806,7 +2535,7 @@
         };
     }
 
-    // Video Processing Action Trigger
+    // Comprehensive Video Processing Action Trigger (Delogo, Crop, GIF, Compress)
     if (videoProcessBtn) {
         videoProcessBtn.addEventListener("click", () => {
             if (!currentVideoFile || !videoPreview) {
@@ -1814,14 +2543,108 @@
                 return;
             }
 
+            // ----------------------------------------------------
+            // SUB-TOOL 3: 🎞️ VIDEO TO GIF / BOOMERANG MAKER
+            // ----------------------------------------------------
+            if (videoActiveSubtool === "gif") {
+                startProgress("Rendering Looping GIF...", "Applying 2-pass Lanczos palette optimization");
+
+                const formData = new FormData();
+                formData.append("video", currentVideoFile);
+                formData.append("mode", "gif");
+                formData.append("start_sec", videoGifStart ? videoGifStart.value : "0");
+                formData.append("end_sec", videoGifEnd ? videoGifEnd.value : "5");
+                formData.append("gif_fps", videoGifFps ? videoGifFps.value : "12");
+                formData.append("gif_scale", videoGifScale ? videoGifScale.value : "480");
+
+                fetch("/api/video/process", {
+                    method: "POST",
+                    body: formData
+                })
+                .then(async (res) => {
+                    if (!res.ok) {
+                        const err = await res.json().catch(() => ({ detail: "GIF generation failed" }));
+                        throw new Error(err.detail || "Server error");
+                    }
+                    return res.blob();
+                })
+                .then(blob => {
+                    cleanVideoBlob = blob;
+                    if (videoResultGif) {
+                        videoResultGif.src = URL.createObjectURL(blob);
+                        videoResultGif.classList.remove("hidden");
+                    }
+                    if (videoResultPlayer) videoResultPlayer.classList.add("hidden");
+
+                    completeProgress(() => {
+                        videoReadyCard.classList.remove("hidden");
+                        if (videoFileInfo) {
+                            videoFileInfo.textContent = `High-Quality Looping GIF • Lanczos Palette • ${formatBytes(blob.size)}`;
+                        }
+                        showToast("GIF created successfully!", "success");
+                    });
+                })
+                .catch(err => {
+                    hideProgress();
+                    showToast(err.message || "GIF generation failed.", "error");
+                });
+                return;
+            }
+
+            // ----------------------------------------------------
+            // SUB-TOOL 4: 📦 WHATSAPP VIDEO COMPRESSOR
+            // ----------------------------------------------------
+            if (videoActiveSubtool === "compress") {
+                startProgress("Compressing Video with H.264 Engine...", "Reducing bitrate & optimizing for WhatsApp sharing");
+
+                const formData = new FormData();
+                formData.append("video", currentVideoFile);
+                formData.append("mode", "compress");
+                formData.append("crf", videoCompressCrf ? videoCompressCrf.value : "28");
+                formData.append("resolution", videoCompressRes ? videoCompressRes.value : "720");
+
+                fetch("/api/video/process", {
+                    method: "POST",
+                    body: formData
+                })
+                .then(async (res) => {
+                    if (!res.ok) {
+                        const err = await res.json().catch(() => ({ detail: "Video compression failed" }));
+                        throw new Error(err.detail || "Server error");
+                    }
+                    return res.blob();
+                })
+                .then(blob => {
+                    cleanVideoBlob = blob;
+                    if (videoResultPlayer) {
+                        videoResultPlayer.src = URL.createObjectURL(blob);
+                        videoResultPlayer.classList.remove("hidden");
+                    }
+                    if (videoResultGif) videoResultGif.classList.add("hidden");
+
+                    completeProgress(() => {
+                        videoReadyCard.classList.remove("hidden");
+                        if (videoFileInfo) {
+                            videoFileInfo.textContent = `WhatsApp Compressed MP4 • 50-80% Size Reduction • ${formatBytes(blob.size)}`;
+                        }
+                        showToast("Video compressed successfully!", "success");
+                    });
+                })
+                .catch(err => {
+                    hideProgress();
+                    showToast(err.message || "Video compression failed.", "error");
+                });
+                return;
+            }
+
+            // ----------------------------------------------------
+            // SUB-TOOL 1 & 2: DELOGO (ERASE) / CROP WATERMARK
+            // ----------------------------------------------------
             const formData = new FormData();
             formData.append("video", currentVideoFile);
-            formData.append("mode", videoPrimaryMode);
+            formData.append("mode", videoActiveSubtool);
 
-            // ---------------------------------------------
-            // MODE B: CROP MODE
-            // ---------------------------------------------
-            if (videoPrimaryMode === "crop") {
+            if (videoActiveSubtool === "crop") {
                 const cropCoords = mapVideoCropCoords();
                 if (!cropCoords) {
                     showToast("Unable to calculate video crop dimensions.", "error");
@@ -1832,26 +2655,8 @@
                 formData.append("crop_w", cropCoords.w);
                 formData.append("crop_h", cropCoords.h);
 
-                // Optional watermark overlay on crop mode too
-                if (videoTextOverlayToggle && videoTextOverlayToggle.checked) {
-                    formData.append("overlay_type", videoOverlayMode);
-                    if (videoOverlayMode === "logo" && videoLogoFile) {
-                        formData.append("logo_file", videoLogoFile);
-                        formData.append("text_opacity", videoLogoOpacity ? videoLogoOpacity.value : "90");
-                    } else if (videoTextWatermark && videoTextWatermark.value.trim()) {
-                        formData.append("text_watermark", videoTextWatermark.value.trim());
-                        formData.append("text_color", videoTextColor ? videoTextColor.value : "#FFFFFF");
-                        formData.append("text_opacity", videoTextOpacity ? videoTextOpacity.value : "90");
-                    }
-                    formData.append("text_position", videoTextPosition ? videoTextPosition.value : "bottom_right");
-                }
-
                 startProgress("Cropping Video with Hardware Precision...", "Applying spatial boundary cut & re-encoding");
-            }
-            // ---------------------------------------------
-            // MODE A: BLUR / ERASE MODE
-            // ---------------------------------------------
-            else {
+            } else {
                 const boxesPayload = [];
                 for (let i = 0; i < activeBoxCount; i++) {
                     const boxElem = delogoBoxes[i];
@@ -1867,7 +2672,6 @@
                                 mode: videoRemovalMode
                             };
 
-                            // Check Custom Time Range
                             if (videoTimeMode === "custom") {
                                 const customStart = parseFloat(videoWatermarkStart ? videoWatermarkStart.value : "");
                                 const customEnd = parseFloat(videoWatermarkEnd ? videoWatermarkEnd.value : "");
@@ -1888,7 +2692,6 @@
                 formData.append("boxes_json", JSON.stringify(boxesPayload));
                 formData.append("blur_intensity", videoBlurIntensity ? videoBlurIntensity.value : "20");
 
-                // Custom Watermark Replacement (Text or PNG Logo)
                 if (videoTextOverlayToggle && videoTextOverlayToggle.checked) {
                     formData.append("overlay_type", videoOverlayMode);
                     if (videoOverlayMode === "logo" && videoLogoFile) {
@@ -1905,13 +2708,8 @@
                 startProgress("Processing Video Delogo Studio...", "Applying FFmpeg spatial reconstruction across video frames");
             }
 
-            // Common Options
-            if (videoRemoveOutro && videoRemoveOutro.checked) {
-                formData.append("remove_outro", "true");
-            }
-            if (videoMuteToggle && videoMuteToggle.checked) {
-                formData.append("mute_audio", "true");
-            }
+            if (videoRemoveOutro && videoRemoveOutro.checked) formData.append("remove_outro", "true");
+            if (videoMuteToggle && videoMuteToggle.checked) formData.append("mute_audio", "true");
             const tStart = parseFloat(videoTrimStart ? videoTrimStart.value : "");
             const tEnd = parseFloat(videoTrimEnd ? videoTrimEnd.value : "");
             if (!isNaN(tStart)) formData.append("trim_start", tStart);
@@ -1930,12 +2728,16 @@
             })
             .then(blob => {
                 cleanVideoBlob = blob;
-                videoResultPlayer.src = URL.createObjectURL(blob);
+                if (videoResultPlayer) {
+                    videoResultPlayer.src = URL.createObjectURL(blob);
+                    videoResultPlayer.classList.remove("hidden");
+                }
+                if (videoResultGif) videoResultGif.classList.add("hidden");
 
                 completeProgress(() => {
                     videoReadyCard.classList.remove("hidden");
                     if (videoFileInfo) {
-                        const modeLabel = videoPrimaryMode === "crop" ? "Video Crop Complete" : "Watermark Delogo Complete";
+                        const modeLabel = videoActiveSubtool === "crop" ? "Video Crop Complete" : "Watermark Delogo Complete";
                         videoFileInfo.textContent = `${modeLabel} • Ultrafast Hardware Engine • Clean MP4 • ${formatBytes(blob.size)}`;
                     }
                     showToast("Video processing completed successfully!", "success");
@@ -1953,16 +2755,768 @@
             if (!cleanVideoBlob) return;
             const link = document.createElement("a");
             link.href = URL.createObjectURL(cleanVideoBlob);
-            link.download = videoPrimaryMode === "crop" ? "supiristudio_cropped_video.mp4" : "supiristudio_clean_video.mp4";
+
+            if (videoActiveSubtool === "gif") {
+                link.download = "supiristudio_clip.gif";
+            } else if (videoActiveSubtool === "crop") {
+                link.download = "supiristudio_cropped_video.mp4";
+            } else if (videoActiveSubtool === "compress") {
+                link.download = "supiristudio_compressed_video.mp4";
+            } else {
+                link.download = "supiristudio_clean_video.mp4";
+            }
+
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
-            showToast("Video download started!", "success");
+            showToast("Video file download started!", "success");
         });
     }
 
     // ========================================================
-    // TOOL 4: 🪪 BIOMETRIC ID, PASSPORT & VISA STUDIO PRO
+    // TOOL 4: ✨ AI PHOTO ENHANCER, UPSCALER & COLORIZER STUDIO
+    // ========================================================
+    const enhanceDropzone = document.getElementById("enhanceDropzone");
+    const enhanceFileInput = document.getElementById("enhanceFileInput");
+    const enhanceUploadArea = document.getElementById("enhanceUploadArea");
+    const enhanceWorkspaceArea = document.getElementById("enhanceWorkspaceArea");
+    const enhanceWrapper = document.getElementById("enhanceWrapper") || document.getElementById("enhanceSliderContainer");
+    const enhanceBeforeImg = document.getElementById("enhanceBeforeImg");
+    const enhanceAfterWrapper = document.getElementById("enhanceAfterWrapper");
+    const enhanceAfterImg = document.getElementById("enhanceAfterImg");
+    const enhanceSliderLine = document.getElementById("enhanceSliderLine");
+    const enhancePresetBtns = document.querySelectorAll(".enhance-preset-btn");
+    const enhanceUpscaleToggle = document.getElementById("enhanceUpscaleToggle");
+    const enhanceSharpness = document.getElementById("enhanceSharpness");
+    const enhanceSharpnessVal = document.getElementById("enhanceSharpnessVal");
+    const enhanceDenoise = document.getElementById("enhanceDenoise");
+    const enhanceDenoiseVal = document.getElementById("enhanceDenoiseVal");
+    const enhanceProcessBtn = document.getElementById("enhanceProcessBtn");
+    const enhanceReadyCard = document.getElementById("enhanceReadyCard");
+    const enhanceFileInfo = document.getElementById("enhanceFileInfo");
+    const enhanceDownloadBtn = document.getElementById("enhanceDownloadBtn");
+    const enhanceResetBtn = document.getElementById("enhanceResetBtn");
+    const enhanceProcessAnotherBtn = document.getElementById("enhanceProcessAnotherBtn");
+
+    let enhanceOriginalBlob = null;
+    let enhanceEnhancedBlob = null;
+    let enhanceCurrentPreset = "auto_hd";
+    let isDraggingEnhanceSlider = false;
+
+    if (enhanceDropzone && enhanceFileInput) {
+        enhanceDropzone.addEventListener("click", () => enhanceFileInput.click());
+
+        ["dragenter", "dragover"].forEach(ev => {
+            enhanceDropzone.addEventListener(ev, (e) => {
+                e.preventDefault();
+                enhanceDropzone.classList.add("border-emerald-500", "bg-slate-900/80");
+            });
+        });
+
+        ["dragleave", "drop"].forEach(ev => {
+            enhanceDropzone.addEventListener(ev, (e) => {
+                e.preventDefault();
+                enhanceDropzone.classList.remove("border-emerald-500", "bg-slate-900/80");
+            });
+        });
+
+        enhanceDropzone.addEventListener("drop", (e) => {
+            if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                handleEnhanceFile(e.dataTransfer.files[0]);
+            }
+        });
+
+        enhanceFileInput.addEventListener("change", (e) => {
+            if (e.target.files && e.target.files[0]) {
+                handleEnhanceFile(e.target.files[0]);
+            }
+        });
+    }
+
+    function handleEnhanceFile(file) {
+        if (!file.type.startsWith("image/")) {
+            showToast("Please upload a valid photo file.", "error");
+            return;
+        }
+        if (file.size > MAX_FILE_SIZE) {
+            showToast("File size exceeds 50 MB limit.", "error");
+            return;
+        }
+
+        enhanceOriginalBlob = file;
+        const url = URL.createObjectURL(file);
+        enhanceBeforeImg.src = url;
+        enhanceAfterImg.src = url;
+
+        enhanceUploadArea.classList.add("hidden");
+        enhanceWorkspaceArea.classList.remove("hidden");
+        enhanceReadyCard.classList.add("hidden");
+
+        // Center Split Slider at 50%
+        if (enhanceAfterWrapper) enhanceAfterWrapper.style.width = "50%";
+        if (enhanceSliderLine) enhanceSliderLine.style.left = "50%";
+
+        showToast("Photo loaded! Pick a Preset or adjust Sharpness & Deblur.", "info");
+    }
+
+    // Interactive Before / After Split Slider Handling
+    if (enhanceWrapper) {
+        function updateSplitSlider(clientX) {
+            const rect = enhanceWrapper.getBoundingClientRect();
+            let pct = ((clientX - rect.left) / rect.width) * 100;
+            pct = Math.max(0, Math.min(100, pct));
+            if (enhanceAfterWrapper) enhanceAfterWrapper.style.width = `${pct}%`;
+            if (enhanceSliderLine) enhanceSliderLine.style.left = `${pct}%`;
+        }
+
+        enhanceWrapper.addEventListener("mousedown", (e) => {
+            isDraggingEnhanceSlider = true;
+            updateSplitSlider(e.clientX);
+        });
+
+        window.addEventListener("mousemove", (e) => {
+            if (!isDraggingEnhanceSlider) return;
+            updateSplitSlider(e.clientX);
+        });
+
+        window.addEventListener("mouseup", () => {
+            isDraggingEnhanceSlider = false;
+        });
+
+        enhanceWrapper.addEventListener("touchstart", (e) => {
+            isDraggingEnhanceSlider = true;
+            if (e.touches && e.touches[0]) updateSplitSlider(e.touches[0].clientX);
+        }, { passive: true });
+
+        window.addEventListener("touchmove", (e) => {
+            if (!isDraggingEnhanceSlider) return;
+            if (e.touches && e.touches[0]) updateSplitSlider(e.touches[0].clientX);
+        }, { passive: true });
+
+        window.addEventListener("touchend", () => {
+            isDraggingEnhanceSlider = false;
+        });
+    }
+
+    // Preset Selection Listeners
+    enhancePresetBtns.forEach(btn => {
+        btn.addEventListener("click", () => {
+            enhancePresetBtns.forEach(b => {
+                b.className = "enhance-preset-btn p-2 rounded-xl border border-slate-800 bg-slate-900 text-slate-300 text-xs font-semibold text-center hover:border-slate-700 transition-all";
+            });
+            btn.className = "enhance-preset-btn active p-2 rounded-xl border border-emerald-500 bg-emerald-500/10 text-emerald-400 text-xs font-bold text-center transition-all shadow-glow-emerald";
+            enhanceCurrentPreset = btn.getAttribute("data-preset");
+        });
+    });
+
+    if (enhanceSharpness && enhanceSharpnessVal) {
+        enhanceSharpness.addEventListener("input", (e) => {
+            enhanceSharpnessVal.textContent = e.target.value;
+        });
+    }
+
+    if (enhanceDenoise && enhanceDenoiseVal) {
+        enhanceDenoise.addEventListener("input", (e) => {
+            enhanceDenoiseVal.textContent = `${e.target.value}px`;
+        });
+    }
+
+    // Process Photo Enhancement Action
+    if (enhanceProcessBtn) {
+        enhanceProcessBtn.addEventListener("click", () => {
+            if (!enhanceOriginalBlob) {
+                showToast("Please upload a photo first.", "error");
+                return;
+            }
+
+            startProgress("Enhancing Photo with Neural Clarity...", "Applying LAB CLAHE, Bilateral Denoising & Super-Resolution");
+
+            const formData = new FormData();
+            formData.append("image", enhanceOriginalBlob);
+            formData.append("preset", enhanceCurrentPreset);
+            if (enhanceUpscaleToggle && enhanceUpscaleToggle.checked) {
+                formData.append("upscale_2x", "true");
+            }
+            if (enhanceSharpness) formData.append("sharpness", enhanceSharpness.value);
+            if (enhanceDenoise) formData.append("denoise", enhanceDenoise.value);
+
+            fetch("/api/image/enhance", {
+                method: "POST",
+                body: formData
+            })
+            .then(async (res) => {
+                if (!res.ok) {
+                    const err = await res.json().catch(() => ({ detail: "Enhancement failed" }));
+                    throw new Error(err.detail || "Server error");
+                }
+                return res.blob();
+            })
+            .then(blob => {
+                enhanceEnhancedBlob = blob;
+                const url = URL.createObjectURL(blob);
+                if (enhanceAfterImg) enhanceAfterImg.src = url;
+
+                completeProgress(() => {
+                    enhanceReadyCard.classList.remove("hidden");
+                    if (enhanceFileInfo) {
+                        const upscaleLabel = enhanceUpscaleToggle && enhanceUpscaleToggle.checked ? "2× HD Super-Resolution" : "HD CLAHE Enhanced";
+                        enhanceFileInfo.textContent = `${upscaleLabel} • Preset: ${enhanceCurrentPreset.toUpperCase()} • ${formatBytes(blob.size)}`;
+                    }
+                    showToast("Photo enhanced successfully! Drag the Split Slider to compare.", "success");
+                });
+            })
+            .catch(err => {
+                hideProgress();
+                showToast(err.message || "Photo enhancement failed.", "error");
+            });
+        });
+    }
+
+    if (enhanceDownloadBtn) {
+        enhanceDownloadBtn.addEventListener("click", () => {
+            if (!enhanceEnhancedBlob) return;
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(enhanceEnhancedBlob);
+            link.download = "supiristudio_hd_enhanced.png";
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            showToast("Enhanced photo download started!", "success");
+        });
+    }
+
+    if (enhanceResetBtn || enhanceProcessAnotherBtn) {
+        const resetHandler = () => {
+            enhanceWorkspaceArea.classList.add("hidden");
+            enhanceUploadArea.classList.remove("hidden");
+            enhanceReadyCard.classList.add("hidden");
+            if (enhanceFileInput) enhanceFileInput.value = "";
+            enhanceOriginalBlob = null;
+            enhanceEnhancedBlob = null;
+        };
+        if (enhanceResetBtn) enhanceResetBtn.addEventListener("click", resetHandler);
+        if (enhanceProcessAnotherBtn) enhanceProcessAnotherBtn.addEventListener("click", resetHandler);
+    }
+
+    // ========================================================
+    // TOOL 5: 🔒 PRIVACY CENSOR & SOCIAL THUMBNAIL MAKER
+    // ========================================================
+    const censorDropzone = document.getElementById("censorDropzone");
+    const censorFileInput = document.getElementById("censorFileInput");
+    const censorUploadArea = document.getElementById("censorUploadArea");
+    const censorWorkspaceArea = document.getElementById("censorWorkspaceArea");
+    const censorModePrivacyBtn = document.getElementById("censorModePrivacyBtn");
+    const censorModeThumbBtn = document.getElementById("censorModeThumbBtn") || document.getElementById("censorModePostBtn");
+    const censorPrivacySection = document.getElementById("censorPrivacySection") || document.getElementById("censorPrivacyControls");
+    const censorThumbSection = document.getElementById("censorThumbSection") || document.getElementById("censorThumbnailControls");
+
+    const censorPreviewCanvas = document.getElementById("censorPreviewCanvas") || document.getElementById("censorBaseCanvas");
+    const censorBoxesLayer = document.getElementById("censorBoxesLayer");
+    const censorAutoDetectBtn = document.getElementById("censorAutoDetectBtn");
+    const censorAddBoxBtn = document.getElementById("censorAddBoxBtn");
+    const censorClearBoxesBtn = document.getElementById("censorClearBoxesBtn");
+    const censorStyleSelect = document.getElementById("censorStyleSelect");
+    const censorIntensity = document.getElementById("censorIntensity");
+    const censorIntensityVal = document.getElementById("censorIntensityVal");
+    const censorProcessBtn = document.getElementById("censorProcessBtn");
+
+    // Thumbnail Designer Controls
+    const thumbHeadlineInput = document.getElementById("thumbHeadlineInput") || document.getElementById("censorHeadlineText");
+    const thumbFontSize = document.getElementById("thumbFontSize") || document.getElementById("censorTextSize");
+    const thumbFontSizeVal = document.getElementById("thumbFontSizeVal") || document.getElementById("censorTextSizeVal");
+    const thumbTextColor = document.getElementById("thumbTextColor") || document.getElementById("censorTextColor");
+    const thumbStrokeColor = document.getElementById("thumbStrokeColor") || document.getElementById("censorStrokeColor");
+    const thumbShadowToggle = document.getElementById("thumbShadowToggle");
+    const thumbRibbonToggle = document.getElementById("thumbRibbonToggle");
+    const thumbBadgeBtns = document.querySelectorAll(".thumb-badge-btn, .censor-badge-btn");
+
+    const censorReadyCard = document.getElementById("censorReadyCard");
+    const censorFileInfo = document.getElementById("censorFileInfo");
+    const censorDownloadBtn = document.getElementById("censorDownloadBtn");
+    const censorResetBtn = document.getElementById("censorResetBtn");
+    const censorProcessAnotherBtn = document.getElementById("censorProcessAnotherBtn");
+
+    let censorOriginalImage = null;
+    let censorOriginalBlob = null;
+    let censorCurrentBlob = null;
+    let censorActiveMode = "privacy"; // "privacy" or "thumbnail"
+    let censorBoxElements = [];
+    let activeStickers = [];
+
+    // Switch between Privacy Censor vs Thumbnail Designer Mode
+    if (censorModePrivacyBtn && censorModeThumbBtn) {
+        censorModePrivacyBtn.addEventListener("click", () => {
+            censorActiveMode = "privacy";
+            censorModePrivacyBtn.className = "flex-1 py-1.5 px-3 rounded-lg text-xs font-bold transition-all bg-emerald-500 text-slate-950 shadow-glow-emerald";
+            censorModeThumbBtn.className = "flex-1 py-1.5 px-3 rounded-lg text-xs font-semibold text-slate-400 hover:text-white transition-all";
+            if (censorPrivacySection) censorPrivacySection.classList.remove("hidden");
+            if (censorThumbSection) censorThumbSection.classList.add("hidden");
+            if (censorBoxesLayer) censorBoxesLayer.classList.remove("hidden");
+            showToast("Privacy Censor Mode active: Blur faces, plates, or sensitive IDs.", "info");
+        });
+
+        censorModeThumbBtn.addEventListener("click", () => {
+            censorActiveMode = "thumbnail";
+            censorModeThumbBtn.className = "flex-1 py-1.5 px-3 rounded-lg text-xs font-bold transition-all bg-emerald-500 text-slate-950 shadow-glow-emerald";
+            censorModePrivacyBtn.className = "flex-1 py-1.5 px-3 rounded-lg text-xs font-semibold text-slate-400 hover:text-white transition-all";
+            if (censorThumbSection) censorThumbSection.classList.remove("hidden");
+            if (censorPrivacySection) censorPrivacySection.classList.add("hidden");
+            if (censorBoxesLayer) censorBoxesLayer.classList.add("hidden");
+            renderThumbnailCanvas();
+            showToast("Thumbnail Designer active: Add headline text and badges.", "info");
+        });
+    }
+
+    if (censorIntensity && censorIntensityVal) {
+        censorIntensity.addEventListener("input", (e) => {
+            censorIntensityVal.textContent = `${e.target.value}px`;
+        });
+    }
+
+    if (censorDropzone && censorFileInput) {
+        censorDropzone.addEventListener("click", () => censorFileInput.click());
+
+        ["dragenter", "dragover"].forEach(ev => {
+            censorDropzone.addEventListener(ev, (e) => {
+                e.preventDefault();
+                censorDropzone.classList.add("border-emerald-500", "bg-slate-900/80");
+            });
+        });
+
+        ["dragleave", "drop"].forEach(ev => {
+            censorDropzone.addEventListener(ev, (e) => {
+                e.preventDefault();
+                censorDropzone.classList.remove("border-emerald-500", "bg-slate-900/80");
+            });
+        });
+
+        censorDropzone.addEventListener("drop", (e) => {
+            if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                handleCensorFile(e.dataTransfer.files[0]);
+            }
+        });
+
+        censorFileInput.addEventListener("change", (e) => {
+            if (e.target.files && e.target.files[0]) {
+                handleCensorFile(e.target.files[0]);
+            }
+        });
+    }
+
+    function handleCensorFile(file) {
+        if (!file.type.startsWith("image/")) {
+            showToast("Please upload a valid image file.", "error");
+            return;
+        }
+        if (file.size > MAX_FILE_SIZE) {
+            showToast("File size exceeds 50 MB limit.", "error");
+            return;
+        }
+
+        censorOriginalBlob = file;
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            censorOriginalImage = new Image();
+            censorOriginalImage.onload = () => {
+                initCensorCanvas();
+                censorUploadArea.classList.add("hidden");
+                censorWorkspaceArea.classList.remove("hidden");
+                censorReadyCard.classList.add("hidden");
+                clearCensorBoxes();
+                showToast("Photo loaded! Click 'Auto-Detect Faces' or add manual boxes.", "info");
+            };
+            censorOriginalImage.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+    }
+
+    function initCensorCanvas() {
+        if (!censorPreviewCanvas || !censorOriginalImage) return;
+        censorPreviewCanvas.width = censorOriginalImage.naturalWidth;
+        censorPreviewCanvas.height = censorOriginalImage.naturalHeight;
+        const ctx = censorPreviewCanvas.getContext("2d");
+        ctx.drawImage(censorOriginalImage, 0, 0);
+    }
+
+    function clearCensorBoxes() {
+        if (!censorBoxesLayer) return;
+        censorBoxesLayer.innerHTML = "";
+        censorBoxElements = [];
+    }
+
+    if (censorClearBoxesBtn) censorClearBoxesBtn.addEventListener("click", clearCensorBoxes);
+
+    // Create Draggable / Resizable Censor Box Overlay Element
+    function createCensorBox(xPct, yPct, wPct, hPct, label = "CENSOR") {
+        if (!censorBoxesLayer) return;
+
+        const box = document.createElement("div");
+        box.className = "absolute border-2 border-dashed border-rose-500 bg-rose-500/20 rounded shadow-lg flex items-center justify-center cursor-move";
+        box.style.left = `${xPct}%`;
+        box.style.top = `${yPct}%`;
+        box.style.width = `${wPct}%`;
+        box.style.height = `${hPct}%`;
+
+        box.innerHTML = `
+            <span class="text-[9px] font-black text-rose-300 bg-slate-950/80 px-1 py-0.5 rounded pointer-events-none uppercase tracking-wider">${label}</span>
+            <button type="button" class="censor-del-btn absolute -top-2.5 -right-2.5 w-5 h-5 rounded-full bg-rose-600 text-white text-[10px] font-bold flex items-center justify-center hover:bg-rose-500 shadow">×</button>
+            <div class="censor-resize-handle absolute -bottom-1.5 -right-1.5 w-3.5 h-3.5 bg-rose-400 rounded-full cursor-se-resize shadow"></div>
+        `;
+
+        box.querySelector(".censor-del-btn").addEventListener("click", (e) => {
+            e.stopPropagation();
+            box.remove();
+            censorBoxElements = censorBoxElements.filter(b => b !== box);
+        });
+
+        // Box Dragging & Resizing Interactions
+        let isDragging = false;
+        let isResizing = false;
+        let startX, startY, startLeft, startTop, startW, startH;
+
+        function onDown(e) {
+            if (e.target.classList.contains("censor-resize-handle")) {
+                isResizing = true;
+            } else {
+                isDragging = true;
+            }
+
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+
+            startX = clientX;
+            startY = clientY;
+            startLeft = box.offsetLeft;
+            startTop = box.offsetTop;
+            startW = box.offsetWidth;
+            startH = box.offsetHeight;
+            e.preventDefault();
+        }
+
+        function onMove(e) {
+            if (!isDragging && !isResizing) return;
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            const dx = clientX - startX;
+            const dy = clientY - startY;
+
+            const pW = censorBoxesLayer.clientWidth;
+            const pH = censorBoxesLayer.clientHeight;
+
+            if (isDragging) {
+                const newLeft = Math.max(0, Math.min(startLeft + dx, pW - box.offsetWidth));
+                const newTop = Math.max(0, Math.min(startTop + dy, pH - box.offsetHeight));
+                box.style.left = `${(newLeft / pW) * 100}%`;
+                box.style.top = `${(newTop / pH) * 100}%`;
+            } else if (isResizing) {
+                const newW = Math.max(25, Math.min(startW + dx, pW - startLeft));
+                const newH = Math.max(20, Math.min(startH + dy, pH - startTop));
+                box.style.width = `${(newW / pW) * 100}%`;
+                box.style.height = `${(newH / pH) * 100}%`;
+            }
+        }
+
+        function onUp() {
+            isDragging = false;
+            isResizing = false;
+        }
+
+        box.addEventListener("mousedown", onDown);
+        window.addEventListener("mousemove", onMove);
+        window.addEventListener("mouseup", onUp);
+
+        box.addEventListener("touchstart", onDown, { passive: false });
+        window.addEventListener("touchmove", onMove, { passive: false });
+        window.addEventListener("touchend", onUp);
+
+        censorBoxesLayer.appendChild(box);
+        censorBoxElements.push(box);
+    }
+
+    if (censorAddBoxBtn) {
+        censorAddBoxBtn.addEventListener("click", () => {
+            createCensorBox(35, 35, 30, 20, "PLATE / NIC");
+            showToast("Manual censor box added. Drag & resize over sensitive data.", "info");
+        });
+    }
+
+    // Auto-Detect Faces Button (OpenCV Haar Cascade)
+    if (censorAutoDetectBtn) {
+        censorAutoDetectBtn.addEventListener("click", () => {
+            if (!censorOriginalBlob) {
+                showToast("Please upload an image first.", "error");
+                return;
+            }
+
+            startProgress("Auto-Detecting Faces...", "Running OpenCV Frontal Face Haar Cascade algorithm");
+
+            const formData = new FormData();
+            formData.append("image", censorOriginalBlob);
+
+            fetch("/api/image/detect-faces", {
+                method: "POST",
+                body: formData
+            })
+            .then(async (res) => {
+                if (!res.ok) {
+                    const err = await res.json().catch(() => ({ detail: "Face detection failed" }));
+                    throw new Error(err.detail || "Server error");
+                }
+                return res.json();
+            })
+            .then(data => {
+                completeProgress(() => {
+                    const faces = data.faces || [];
+                    if (faces.length === 0) {
+                        showToast("No human faces detected automatically. Use 'Add Manual Box' instead.", "warning");
+                        return;
+                    }
+
+                    const imgW = censorOriginalImage.naturalWidth;
+                    const imgH = censorOriginalImage.naturalHeight;
+
+                    faces.forEach((f, idx) => {
+                        const xPct = (f.x / imgW) * 100;
+                        const yPct = (f.y / imgH) * 100;
+                        const wPct = (f.w / imgW) * 100;
+                        const hPct = (f.h / imgH) * 100;
+                        createCensorBox(xPct, yPct, wPct, hPct, `FACE #${idx + 1}`);
+                    });
+
+                    showToast(`Successfully detected and boxed ${faces.length} face(s)!`, "success");
+                });
+            })
+            .catch(err => {
+                hideProgress();
+                showToast(err.message || "Failed to auto-detect faces.", "error");
+            });
+        });
+    }
+
+    // Apply Censor Action Trigger
+    if (censorProcessBtn) {
+        censorProcessBtn.addEventListener("click", () => {
+            if (!censorOriginalBlob) {
+                showToast("Please upload an image first.", "error");
+                return;
+            }
+
+            if (censorBoxElements.length === 0) {
+                showToast("Please add at least one censor box over a face or plate.", "warning");
+                return;
+            }
+
+            const imgW = censorOriginalImage.naturalWidth;
+            const imgH = censorOriginalImage.naturalHeight;
+            const layerW = censorBoxesLayer.clientWidth;
+            const layerH = censorBoxesLayer.clientHeight;
+
+            const boxesPayload = censorBoxElements.map((b, i) => {
+                const rx = Math.round((b.offsetLeft / layerW) * imgW);
+                const ry = Math.round((b.offsetTop / layerH) * imgH);
+                const rw = Math.round((b.offsetWidth / layerW) * imgW);
+                const rh = Math.round((b.offsetHeight / layerH) * imgH);
+                return {
+                    id: i + 1,
+                    x: Math.max(0, rx),
+                    y: Math.max(0, ry),
+                    w: Math.min(imgW - rx, rw),
+                    h: Math.min(imgH - ry, rh)
+                };
+            });
+
+            startProgress("Applying Privacy Censor...", "Applying pixel mosaic, Gaussian blur, or privacy shields");
+
+            const formData = new FormData();
+            formData.append("image", censorOriginalBlob);
+            formData.append("boxes_json", JSON.stringify(boxesPayload));
+            formData.append("censor_style", censorStyleSelect ? censorStyleSelect.value : "blur");
+            formData.append("intensity", censorIntensity ? censorIntensity.value : "25");
+
+            fetch("/api/image/censor", {
+                method: "POST",
+                body: formData
+            })
+            .then(async (res) => {
+                if (!res.ok) {
+                    const err = await res.json().catch(() => ({ detail: "Censoring failed" }));
+                    throw new Error(err.detail || "Server error");
+                }
+                return res.blob();
+            })
+            .then(blob => {
+                censorCurrentBlob = blob;
+                const resultImg = new Image();
+                resultImg.onload = () => {
+                    const ctx = censorPreviewCanvas.getContext("2d");
+                    ctx.drawImage(resultImg, 0, 0);
+                    clearCensorBoxes();
+
+                    completeProgress(() => {
+                        censorReadyCard.classList.remove("hidden");
+                        if (censorFileInfo) {
+                            censorFileInfo.textContent = `Privacy Protected • ${boxesPayload.length} Area(s) Censored • ${formatBytes(blob.size)}`;
+                        }
+                        showToast("Privacy protection applied cleanly!", "success");
+                    });
+                };
+                resultImg.src = URL.createObjectURL(blob);
+            })
+            .catch(err => {
+                hideProgress();
+                showToast(err.message || "Failed to censor photo.", "error");
+            });
+        });
+    }
+
+    // Thumbnail Designer Real-Time Renderer
+    function renderThumbnailCanvas() {
+        if (!censorPreviewCanvas || !censorOriginalImage) return;
+        const ctx = censorPreviewCanvas.getContext("2d");
+        const w = censorPreviewCanvas.width;
+        const h = censorPreviewCanvas.height;
+
+        ctx.drawImage(censorOriginalImage, 0, 0);
+
+        // Draw Badges
+        activeStickers.forEach(sticker => {
+            ctx.save();
+            ctx.font = "900 36px 'Outfit', sans-serif";
+            const textMetrics = ctx.measureText(sticker.text);
+            const badgeW = textMetrics.width + 36;
+            const badgeH = 54;
+
+            ctx.fillStyle = "rgba(15, 23, 42, 0.85)";
+            ctx.strokeStyle = "#10b981";
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.roundRect(sticker.x, sticker.y, badgeW, badgeH, 12);
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.fillStyle = "#ffffff";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText(sticker.text, sticker.x + badgeW / 2, sticker.y + badgeH / 2);
+            ctx.restore();
+        });
+
+        // Draw Headline Text
+        const text = thumbHeadlineInput ? thumbHeadlineInput.value.trim() : "";
+        if (text) {
+            const fSize = thumbFontSize ? parseInt(thumbFontSize.value, 10) : 64;
+            const tColor = thumbTextColor ? thumbTextColor.value : "#FFFFFF";
+            const sColor = thumbStrokeColor ? thumbStrokeColor.value : "#06b6d4";
+
+            ctx.save();
+            ctx.font = `900 ${fSize}px 'Outfit', sans-serif`;
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+
+            const textX = w / 2;
+            const textY = h * 0.2;
+
+            // Ribbon Background
+            if (thumbRibbonToggle && thumbRibbonToggle.checked) {
+                const metrics = ctx.measureText(text);
+                const rw = metrics.width + 60;
+                const rh = fSize + 30;
+                ctx.fillStyle = "rgba(2, 6, 23, 0.85)";
+                ctx.beginPath();
+                ctx.roundRect(textX - rw / 2, textY - rh / 2, rw, rh, 16);
+                ctx.fill();
+            }
+
+            // Drop Shadow
+            if (thumbShadowToggle && thumbShadowToggle.checked) {
+                ctx.shadowColor = "rgba(0, 0, 0, 0.9)";
+                ctx.shadowBlur = 16;
+                ctx.shadowOffsetX = 6;
+                ctx.shadowOffsetY = 8;
+            }
+
+            // Stroke
+            ctx.lineWidth = Math.max(4, fSize * 0.1);
+            ctx.strokeStyle = sColor;
+            ctx.lineJoin = "round";
+            ctx.strokeText(text, textX, textY);
+
+            // Fill
+            ctx.fillStyle = tColor;
+            ctx.fillText(text, textX, textY);
+            ctx.restore();
+        }
+    }
+
+    if (thumbHeadlineInput) thumbHeadlineInput.addEventListener("input", renderThumbnailCanvas);
+    if (thumbFontSize && thumbFontSizeVal) {
+        thumbFontSize.addEventListener("input", (e) => {
+            thumbFontSizeVal.textContent = `${e.target.value}px`;
+            renderThumbnailCanvas();
+        });
+    }
+    if (thumbTextColor) thumbTextColor.addEventListener("input", renderThumbnailCanvas);
+    if (thumbStrokeColor) thumbStrokeColor.addEventListener("input", renderThumbnailCanvas);
+    if (thumbShadowToggle) thumbShadowToggle.addEventListener("change", renderThumbnailCanvas);
+    if (thumbRibbonToggle) thumbRibbonToggle.addEventListener("change", renderThumbnailCanvas);
+
+    thumbBadgeBtns.forEach(btn => {
+        btn.addEventListener("click", () => {
+            const badgeText = btn.getAttribute("data-badge");
+            activeStickers.push({
+                text: badgeText,
+                x: 40 + (activeStickers.length % 3) * 180,
+                y: censorPreviewCanvas ? censorPreviewCanvas.height - 90 : 400
+            });
+            renderThumbnailCanvas();
+            showToast(`Badge ${badgeText} stamped on photo!`, "success");
+        });
+    });
+
+    if (censorDownloadBtn) {
+        censorDownloadBtn.addEventListener("click", () => {
+            if (censorActiveMode === "thumbnail" || !censorCurrentBlob) {
+                if (!censorPreviewCanvas) return;
+                censorPreviewCanvas.toBlob((blob) => {
+                    if (!blob) return;
+                    const link = document.createElement("a");
+                    link.href = URL.createObjectURL(blob);
+                    link.download = censorActiveMode === "thumbnail" ? "supiristudio_social_thumbnail.png" : "supiristudio_privacy_censored.png";
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    showToast("Download started!", "success");
+                }, "image/png");
+            } else {
+                const link = document.createElement("a");
+                link.href = URL.createObjectURL(censorCurrentBlob);
+                link.download = "supiristudio_privacy_censored.png";
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                showToast("Download started!", "success");
+            }
+        });
+    }
+
+    if (censorResetBtn || censorProcessAnotherBtn) {
+        const resetHandler = () => {
+            censorWorkspaceArea.classList.add("hidden");
+            censorUploadArea.classList.remove("hidden");
+            censorReadyCard.classList.add("hidden");
+            if (censorFileInput) censorFileInput.value = "";
+            censorOriginalBlob = null;
+            censorCurrentBlob = null;
+            censorOriginalImage = null;
+            activeStickers = [];
+            clearCensorBoxes();
+        };
+        if (censorResetBtn) censorResetBtn.addEventListener("click", resetHandler);
+        if (censorProcessAnotherBtn) censorProcessAnotherBtn.addEventListener("click", resetHandler);
+    }
+
+    // ========================================================
+    // TOOL 6: 🪪 BIOMETRIC ID, PASSPORT & VISA STUDIO PRO
     // ========================================================
     const idDropzone = document.getElementById("idDropzone");
     const idFileInput = document.getElementById("idFileInput");
@@ -2400,4 +3954,786 @@
         if (idProcessAnotherBtn) idProcessAnotherBtn.addEventListener("click", resetHandler);
     }
 
+    // ========================================================
+    // 12. BILINGUAL USER MANUAL & HELP CENTER CONTROLLER
+    // ========================================================
+    const userGuideModal = document.getElementById("userGuideModal");
+    const userGuideBody = document.getElementById("userGuideBody");
+    const userGuideModalTitle = document.getElementById("userGuideModalTitle");
+    const userGuideModalSubtitle = document.getElementById("userGuideModalSubtitle");
+    const guideLangEnBtn = document.getElementById("guideLangEnBtn");
+    const guideLangSiBtn = document.getElementById("guideLangSiBtn");
+    const guideTryBtnText = document.getElementById("guideTryBtnText");
+    const firstTimeWelcomeCard = document.getElementById("firstTimeWelcomeCard");
+
+    let currentGuideTool = "bg";
+    let currentGuideLang = "en";
+
+    const USER_GUIDE_DATA = {
+        bg: {
+            icon: "fa-scissors",
+            badgeColor: "emerald",
+            tabTarget: "tab-bg",
+            en: {
+                title: "✂️ AI Background Remover & Product Studio",
+                subtitle: "Photoroom-grade automatic AI segmentation, hair matting, 3D shadows & reflections",
+                card1Title: "💡 What is it used for? (Real-World Use Cases)",
+                card1Desc: "Instantly remove backgrounds and turn ordinary mobile photos into commercial studio assets:",
+                card1Items: [
+                    "<strong>E-Commerce & Online Stores:</strong> Create clean white or transparent product listings for Daraz, eBay, Shopify, and WooCommerce.",
+                    "<strong>Social Media Ads & Posts:</strong> Place products on studio gradients, colored backdrops, or luxury scenes with realistic lighting.",
+                    "<strong>Product Glass Reflections:</strong> Add authentic E-Commerce glass mirror reflections and floor podium shadows.",
+                    "<strong>YouTube Thumbnails & Posters:</strong> Generate cutout subjects with razor-sharp white outlines (Stickers).",
+                    "<strong>Profile Pictures & Portfolios:</strong> Isolate portraits cleanly with Deep Learning neural hair matting."
+                ],
+                card2Title: "🛠️ How to use it step-by-step?",
+                card2Desc: "Follow these simple steps to isolate subjects and compose professional backdrops:",
+                card2Steps: [
+                    {
+                        num: "1",
+                        title: "Select AI Detection Mode",
+                        desc: "Choose <strong>🤖 Auto AI</strong> for objects, products, and animals; <strong>👤 Portrait Hair Pro</strong> for human portraits with ultra-fine hair detail; or <strong>✍️ Manual Cutout</strong> for hands-on canvas editing."
+                    },
+                    {
+                        num: "2",
+                        title: "Upload Your Photo",
+                        desc: "Drag and drop or click to upload any PNG, JPG, or WEBP photo (up to 50 MB). Real Deep Learning ONNX AI models (u2netp / u2net_human_seg) compute a full HD alpha cutout."
+                    },
+                    {
+                        num: "3",
+                        title: "Fine-Tune with Interactive Touch-Up Tools",
+                        desc: "Use the top toolbar to refine edges:<br>• <strong>🟢 Restore Brush (ආපහු ගන්න):</strong> Paint to bring back any accidentally removed subject pixels from the original photo.<br>• <strong>🔴 Erase Brush (මකන්න):</strong> Paint over leftover background spots to delete them cleanly.<br>• <strong>🪄 Magic Color Eraser (එක පාටක් මකන්න):</strong> Click any solid color spot to flood-erase matching pixels within the tolerance setting.<br>• <strong>👁️ Hold Compare:</strong> Press and hold down to view the original photo side-by-side."
+                    },
+                    {
+                        num: "4",
+                        title: "Choose Backdrop & Lighting Effects",
+                        desc: "Select Transparent Checkerboard, Pure White, Studio Blue, Cyber Emerald Gradients, or upload your own custom photo. Add <strong>Realistic 3D Drop Shadow</strong>, <strong>Subject Outline</strong>, <strong>🪞 Mirror Reflection</strong>, or <strong>🏛️ Studio Floor Podium</strong>."
+                    },
+                    {
+                        num: "5",
+                        title: "Download or Transfer to ID Studio",
+                        desc: "Click <strong>'⬇️ Download File Now'</strong> to save your high-resolution PNG, or click <strong>'Open in Biometric Passport Studio'</strong> to create official passport photos."
+                    }
+                ],
+                card3Title: "✨ What happens after processing?",
+                card3Desc: "Our lightweight neural inference session calculates high-fidelity alpha masks directly at original Full HD resolution. No personal photos are stored on servers. When the progress bar hits 100%, the green ready card appears for instant download.",
+                tryBtn: "🚀 Try AI BG Studio Now"
+            },
+            si: {
+                title: "✂️ AI Background Remover සහ Product Studio",
+                subtitle: "කෘත්‍රිම බුද්ධිය (AI) මගින් පසුබිම් ඉවත් කිරීම, හිසකෙස් පැහැදිලිව කැපීම, 3D සෙවනැලි සහ Mirror Reflections",
+                card1Title: "💡 මොන වගේ දේවල් වලටද පාවිච්චි කරන්නේ? (ප්‍රයෝජන)",
+                card1Desc: "සාමාන්‍ය දුරකථන ඡායාරූප තත්පර කිහිපයකින් උසස් තත්ත්වයේ වාණිජ මට්ටමේ ඡායාරූප බවට පත් කරගන්න:",
+                card1Items: [
+                    "<strong>ඔන්ලයින් වෙළඳසැල් (E-Commerce):</strong> Daraz, eBay, Shopify, Facebook Marketplace සඳහා සුදු හෝ විනිවිද පෙනෙන (Transparent) පසුබිම් සහිත භාණ්ඩ ඡායාරූප සෑදීම.",
+                    "<strong>සමාජ මාධ්‍ය දැන්වීම්:</strong> ආකර්ෂණීය Studio Gradients, වර්ණ හෝ වෙනත් පසුබිම් ඡායාරූප මත භාණ්ඩ ස්ථානගත කිරීම.",
+                    "<strong>වීදුරු පිළිබිඹු (Mirror Reflection):</strong> භාණ්ඩ වලට සුඛෝපභෝගී E-Commerce Glass Mirror Reflection සහ Studio Floor Podium සෙවනැලි එක් කිරීම.",
+                    "<strong>YouTube Thumbnails සහ පෝස්ටර්:</strong> සුදු පාට Outline (Sticker Stroke) සහිත ආකර්ෂණීය Cutouts නිර්මාණය කිරීම.",
+                    "<strong>පැතිකඩ පින්තූර (Profile Photos):</strong> හිසකෙස් කිසිදු කැපීමකින් තොරව ඉතා සියුම්ව වෙන් කර ගැනීම."
+                ],
+                card2Title: "🛠️ පාවිච්චි කරන්නේ කොහොමද? (පියවරෙන් පියවර උපදෙස්)",
+                card2Desc: "පහත පියවර අනුගමනය කර ඉතා පහසුවෙන් වෘත්තීය මට්ටමේ ඡායාරූප සාදා ගන්න:",
+                card2Steps: [
+                    {
+                        num: "1",
+                        title: "AI Detection Mode එක තෝරන්න",
+                        desc: "භාණ්ඩ, සතුන් හෝ ලාංඡන සඳහා <strong>🤖 Auto AI</strong>, මිනිසුන්ගේ හිසකෙස් සියුම්ව කපා ගැනීමට <strong>👤 Portrait Hair Pro</strong>, හෝ කැන්වසය මත තමන්ටම බ්‍රෂ් එකෙන් මකා ගැනීමට <strong>✍️ Manual Cutout</strong> තෝරන්න."
+                    },
+                    {
+                        num: "2",
+                        title: "ඡායාරූපය ඇතුළත් කරන්න (Upload)",
+                        desc: "ඔබගේ ඡායාරූපය Dropzone එකට Drag කරන්න හෝ Click කර තෝරන්න (උපරිම 50 MB). ONNX Deep Learning AI මාදිලි මගින් තත්පර කිහිපයකින් Full HD Cutout එකක් සාදයි."
+                    },
+                    {
+                        num: "3",
+                        title: "Touch-Up මෙවලම් මගින් සියුම් වෙනස්කම් කරන්න",
+                        desc: "කැන්වසයට ඉහළින් ඇති Toolbar එකෙන්:<br>• <strong>🟢 Restore Brush (ආපහු ගන්න):</strong> නොදැනුවත්ව මැකුණු කොටස් මුල් ඡායාරූපයෙන් ආපසු ලබාගැනීමට පාට කරන්න.<br>• <strong>🔴 Erase Brush (මකන්න):</strong> ඉතිරි වූ අනවශ්‍ය පසුබිම් කොටස් පිරිසිදුව මකා දැමීමට පාට කරන්න.<br>• <strong>🪄 Magic Color Eraser (එක පාටක් මකන්න):</strong> එකම පාටක් ක්ලික් කර එම වර්ණය එකවර මකා දමන්න.<br>• <strong>👁️ Hold Compare:</strong> මුල් ඡායාරූපය සමඟ වෙනස බැලීමට ඔබාගෙන සිටින්න."
+                    },
+                    {
+                        num: "4",
+                        title: "පසුබිම් සහ ආලෝකකරණ එක් කරන්න",
+                        desc: "Transparent, Pure White, Studio Blue, Cyber Emerald Gradients තෝරන්න, නැතහොත් වෙනත් ඡායාරූපයක් Upload කරන්න. <strong>3D Drop Shadow</strong>, <strong>සුදු Outline</strong>, <strong>🪞 Mirror Reflection</strong>, හෝ <strong>🏛️ Studio Floor Podium</strong> එක්කරන්න."
+                    },
+                    {
+                        num: "5",
+                        title: "බාගන්න (Download) හෝ ID Studio වෙත යවන්න",
+                        desc: "<strong>'⬇️ Download File Now'</strong> ඔබා HD PNG ගොනුව බාගන්න. නැතහොත් <strong>'Open in Biometric Passport Studio'</strong> ඔබා පාස්පෝට් ඡායාරූප සාදන්න."
+                    }
+                ],
+                card3Title: "✨ පාවිච්චි කළාම මොකද වෙන්නේ? (ප්‍රතිඵලය)",
+                card3Desc: "කෘත්‍රිම බුද්ධිය (AI) මගින් මුල් ඡායාරූපයේ තත්ත්වයටම (Full HD) සියුම් Alpha Mask එකක් සකසයි. ඔබගේ ඡායාරූප කිසිදු සේවාදායකයක තබා නොගන්නා බැවින් 100% පුද්ගලිකත්වය සුරැකේ. Progress Bar එක 100% වූ පසු කොළ පැහැති Download Card එක දිස්වේ.",
+                tryBtn: "🚀 දැන්ම AI BG Studio පාවිච්චි කරන්න"
+            }
+        },
+
+        eraser: {
+            icon: "fa-paintbrush",
+            badgeColor: "cyan",
+            tabTarget: "tab-eraser",
+            en: {
+                title: "🖌️ Magic Object & Watermark Eraser",
+                subtitle: "Multi-algorithm inpainting to cleanly erase photobombers, text, logos & blemishes",
+                card1Title: "💡 What is it used for? (Real-World Use Cases)",
+                card1Desc: "Erase unwanted elements without damaging or blurring the surrounding background texture:",
+                card1Items: [
+                    "<strong>Remove Photobombers & People:</strong> Erase strangers, passersby, or crowds from vacation and wedding photos.",
+                    "<strong>Delete Watermarks & Logos:</strong> Remove copyright stamps, date imprints, website URLs, and corner brand logos.",
+                    "<strong>Clean Up Landscapes & Architecture:</strong> Erase power lines, trash cans, street signs, and reflections.",
+                    "<strong>Facial Blemish Removal:</strong> Smooth out pimples, scars, dust spots, or lens scratches cleanly."
+                ],
+                card2Title: "🛠️ How to use it step-by-step?",
+                card2Desc: "Highlight unwanted objects in red and let the AI inpainting engine fill the space:",
+                card2Steps: [
+                    {
+                        num: "1",
+                        title: "Upload Your Photo",
+                        desc: "Drop or select any PNG, JPG, or WEBP image (up to 50 MB)."
+                    },
+                    {
+                        num: "2",
+                        title: "Select Eraser Mode",
+                        desc: "Choose <strong>🎯 Magic Object Remover</strong> for people, animals, and objects, or <strong>💧 Watermark & Logo Eraser</strong> for text and graphics."
+                    },
+                    {
+                        num: "3",
+                        title: "Pick Your Mask Selector",
+                        desc: "Choose <strong>🖌️ Freehand Brush</strong> (adjust brush size 5–100px), <strong>⬜ Rectangle Box</strong> for quick logo selection, or <strong>➰ Lasso Selector</strong> for geometric shapes. Use the <strong>Magnifier Loupe</strong> for micro precision!"
+                    },
+                    {
+                        num: "4",
+                        title: "Paint Over the Object in Red",
+                        desc: "Draw over the unwanted area. The red overlay indicates the exact pixels to be inpainted."
+                    },
+                    {
+                        num: "5",
+                        title: "Select Inpaint Algorithm & Process",
+                        desc: "Choose <strong>Telea (Smooth Fluid)</strong> for portraits, <strong>Navier-Stokes (Sharp Edge)</strong> for buildings/lines, or <strong>Patch Match</strong>. Click <strong>'✨ Erase Object / Watermark Now'</strong> and download!"
+                    }
+                ],
+                card3Title: "✨ What happens after processing?",
+                card3Desc: "The inpainting engine calculates fluid partial differential equations and gradient continuities from surrounding pixels, reconstructing textures seamlessly without leaving smudges. The final result is delivered in full HD.",
+                tryBtn: "🚀 Try Magic Eraser Now"
+            },
+            si: {
+                title: "🖌️ Magic Object සහ Watermark Eraser",
+                subtitle: "ඡායාරූප වල ඇති අනවශ්‍ය පුද්ගලයින්, ලාංඡන, අකුරු සහ ලප මුල් පසුබිමට හානි නොවී මකා දැමීම",
+                card1Title: "💡 මොන වගේ දේවල් වලටද පාවිච්චි කරන්නේ? (ප්‍රයෝජන)",
+                card1Desc: "පසුබිමට කිසිදු හානියක් හෝ බොඳවීමක් සිදුනොකර අනවශ්‍ය ඕනෑම දෙයක් අතුරුදහන් කරන්න:",
+                card1Items: [
+                    "<strong>අනවශ්‍ය පුද්ගලයින් ඉවත් කිරීම (Photobombers):</strong> සංචාරක හෝ මංගල ඡායාරූප වල පසුපසින් සිටින අනවශ්‍ය පුද්ගලයින් සහ සෙනඟ මකා දැමීම.",
+                    "<strong>වෝටර්මාර්ක් සහ ලාංඡන (Logos):</strong> ඡායාරූප මත ඇති Copyright සලකුණු, දිනයන්, Website නම්, සහ Brand ලාංඡන ඉවත් කිරීම.",
+                    "<strong>පරිසරය පිරිසිදු කිරීම:</strong> විදුලි කණු, විදුලි රැහැන්, පාරේ ඇති කුණු බඳුන්, සහ අනවශ්‍ය පුවරු මකා දැමීම.",
+                    "<strong>මුහුණේ ලප ඉවත් කිරීම:</strong> කුරුලෑ, කැළැල් හෝ කැමරා කාචයේ දූවිලි සලකුණු ස්වභාවිකව මැකීම."
+                ],
+                card2Title: "🛠️ පාවිච්චි කරන්නේ කොහොමද? (පියවරෙන් පියවර උපදෙස්)",
+                card2Desc: "අයින් කළ යුතු කොටස රතු පාටින් ලකුණු කර AI එකට භාරදෙන්න:",
+                card2Steps: [
+                    {
+                        num: "1",
+                        title: "ඡායාරූපය Upload කරන්න",
+                        desc: "ඕනෑම PNG, JPG, හෝ WEBP ඡායාරූපයක් ඇතුළත් කරන්න (උපරිම 50 MB)."
+                    },
+                    {
+                        num: "2",
+                        title: "Eraser Mode එක තෝරන්න",
+                        desc: "පුද්ගලයින් හෝ ද්‍රව්‍ය සඳහා <strong>🎯 Magic Object Remover</strong>, අකුරු හෝ ලාංඡන සඳහා <strong>💧 Watermark & Logo Eraser</strong> තෝරන්න."
+                    },
+                    {
+                        num: "3",
+                        title: "Selector මෙවලම තෝරන්න",
+                        desc: "අතින් පාට කිරීමට <strong>🖌️ Freehand Brush</strong> (5–100px), පෙට්ටියක් ඇඳීමට <strong>⬜ Rectangle Box</strong>, හෝ නිදහස් හැඩතල සඳහා <strong>➰ Lasso</strong> තෝරන්න. සියුම් තැන් සඳහා <strong>Magnifier Loupe</strong> (විශාලනය) පාවිච්චි කරන්න."
+                    },
+                    {
+                        num: "4",
+                        title: "අනවශ්‍ය කොටස රතු පාටින් පාට කරන්න",
+                        desc: "මකා දැමිය යුතු කොටස මත රතු පාට ආවරණය (Red Mask) යොදන්න."
+                    },
+                    {
+                        num: "5",
+                        title: "Inpainting Algorithm එක තෝරා මකා දමන්න",
+                        desc: "ස්වභාවික මෘදු බව සඳහා <strong>Telea</strong>, පැහැදිලි දාර සඳහා <strong>Navier-Stokes</strong> තෝරා <strong>'✨ Erase Object / Watermark Now'</strong> ඔබන්න. තත්පර කිහිපයකින් පිරිසිදු ඡායාරූපය බාගන්න!"
+                    }
+                ],
+                card3Title: "✨ පාවිච්චි කළාම මොකද වෙන්නේ? (ප්‍රතිඵලය)",
+                card3Desc: "Inpainting ගණිතමය ඇල්ගොරිතම මගින් මකා දැමූ කොටස අවට ඇති පසුබිම් වයනය (Texture) සහ වර්ණ රටා ස්වභාවිකව ගළපා අලුතින්ම නිර්මාණය කරයි. කිසිදු බොඳවීමක් හෝ සලකුණක් ඉතිරි නොවේ.",
+                tryBtn: "🚀 දැන්ම Magic Eraser පාවිච්චි කරන්න"
+            }
+        },
+
+        video: {
+            icon: "fa-film",
+            badgeColor: "cyan",
+            tabTarget: "tab-video",
+            en: {
+                title: "🎬 Video Watermark, GIF & Compressor",
+                subtitle: "Hardware-accelerated video delogoing, edge cropping, looping GIFs & WhatsApp compression",
+                card1Title: "💡 What is it used for? (Real-World Use Cases)",
+                card1Desc: "Multi-functional video processing studio powered by high-speed FFmpeg engines:",
+                card1Items: [
+                    "<strong>Erase Video Logos & Usernames:</strong> Blur or erase moving/static TikTok, CapCut, Instagram Reels, and TV channel logos.",
+                    "<strong>Crop Edge Watermarks:</strong> Remove corner watermarks and convert clips to 9:16 (TikTok), 16:9 (YouTube), or 1:1 (Instagram).",
+                    "<strong>Video to Looping GIF:</strong> Turn video highlights, movie clips, and memes into lightweight 12 FPS looping GIFs for WhatsApp and web.",
+                    "<strong>WhatsApp Video Compressor:</strong> Shrink large 50 MB video files down to 5–10 MB with H.264/AAC for ultra-fast messaging sharing without visible quality loss."
+                ],
+                card2Title: "🛠️ How to use it step-by-step?",
+                card2Desc: "Pick one of the 4 dedicated video sub-tools and process in seconds:",
+                card2Steps: [
+                    {
+                        num: "1",
+                        title: "Upload Your Video",
+                        desc: "Upload MP4, MOV, WEBM, or MKV video files (up to 50 MB)."
+                    },
+                    {
+                        num: "2",
+                        title: "Select One of 4 Sub-Tools",
+                        desc: "• <strong>💧 Blur/Erase:</strong> Drag up to 4 colored delogo boxes over video watermarks. Adjust blur radius (10–60px), set start/end timestamps, or add custom branding.<br>• <strong>✂️ Crop Frame:</strong> Drag the crop frame or click 9:16, 16:9, or 1:1 presets to crop away corner watermarks.<br>• <strong>🎞️ Video to GIF:</strong> Select 480p/720p and convert clip to smooth animated GIF.<br>• <strong>📦 WhatsApp Compressor:</strong> Select H.264/AAC high-efficiency compression (50%–80% size reduction)."
+                    },
+                    {
+                        num: "3",
+                        title: "Process & Preview",
+                        desc: "Click <strong>'Process Video'</strong>. Watch the animated progress bar as FFmpeg transcodes your media."
+                    },
+                    {
+                        num: "4",
+                        title: "Download Clean Video or GIF",
+                        desc: "Preview your processed video inside the interactive HTML5 player and click <strong>'⬇️ Download File Now'</strong>."
+                    }
+                ],
+                card3Title: "✨ What happens after processing?",
+                card3Desc: "Our server executes native FFmpeg binaries with faststart flags. Video and audio codecs remain perfectly synchronized. The output file is rendered with universal MP4/H.264 compatibility for every browser, phone, and TV.",
+                tryBtn: "🚀 Try Video Studio Now"
+            },
+            si: {
+                title: "🎬 Video Watermark, GIF සහ Compressor",
+                subtitle: "වීඩියෝ ලාංඡන මැකීම, දාර කැපීම (Crop), Looping GIF සෑදීම සහ WhatsApp සඳහා වීඩියෝ කුඩා කිරීම",
+                card1Title: "💡 මොන වගේ දේවල් වලටද පාවිච්චි කරන්නේ? (ප්‍රයෝජන)",
+                card1Desc: "FFmpeg තාක්ෂණයෙන් බලගැන්වුණු බහුවිධ වීඩියෝ සංස්කරණ මෙවලම් 4 ක් එකම තැනකින්:",
+                card1Items: [
+                    "<strong>TikTok, CapCut සහ TV Logos ඉවත් කිරීම:</strong> වීඩියෝ වල ඇති චැනල් ලාංඡන, TikTok Usernames සහ Watermarks බොඳ (Blur) කර ඉවත් කිරීම.",
+                    "<strong>දාර කපා දැමීම (Crop Frame):</strong> දාරවල ඇති වෝටර්මාර්ක් ඉවත් කිරීමට 9:16 (TikTok), 16:9 (YouTube), හෝ 1:1 (Instagram) ලෙස වීඩියෝව Crop කිරීම.",
+                    "<strong>Looping Animated GIF සෑදීම:</strong> විනෝදජනක වීඩියෝ කොටස්, Memes සහ Highlights තත්පර කිහිපයකින් WhatsApp සහ Web සඳහා GIF බවට පත් කිරීම.",
+                    "<strong>WhatsApp Video Compressor:</strong> විශාල වීඩියෝ ගොනු (50 MB) ගුණාත්මක බව ඒ අයුරින්ම රැකගෙන 5–10 MB දක්වා (50%–80% කින්) කුඩා කිරීම."
+                ],
+                card2Title: "🛠️ පාවිච්චි කරන්නේ කොහොමද? (පියවරෙන් පියවර උපදෙස්)",
+                card2Desc: "පහත දැක්වෙන ප්‍රධාන උප-මෙවලම් 4 න් එකක් තෝරාගෙන පහසුවෙන් වීඩියෝ සංස්කරණය කරන්න:",
+                card2Steps: [
+                    {
+                        num: "1",
+                        title: "වීඩියෝව Upload කරන්න",
+                        desc: "ඕනෑම MP4, MOV, WEBM, හෝ MKV වීඩියෝවක් ඇතුළත් කරන්න (උපරිම 50 MB)."
+                    },
+                    {
+                        num: "2",
+                        title: "අවශ්‍ය උප-මෙවලම තෝරන්න",
+                        desc: "• <strong>💧 Blur/Erase:</strong> වෝටර්මාර්ක් එක උඩට Delogo Boxes 4 ක් දක්වා Drag කරන්න. Blur ප්‍රමාණය, කාලසීමාව සහ ඔබේම Text එකක් එක්කරන්න.<br>• <strong>✂️ Crop Frame:</strong> දාරවල ලාංඡන කැපීමට 9:16, 16:9, හෝ 1:1 තෝරන්න.<br>• <strong>🎞️ Video to GIF:</strong> සුමට 12 FPS Looping GIF එකක් සාදා ගන්න.<br>• <strong>📦 WhatsApp Compressor:</strong> සයිස් එක 50%–80% කින් අඩු කර වේගයෙන් යැවීමට සකසන්න."
+                    },
+                    {
+                        num: "3",
+                        title: "Process කර ප්‍රතිඵලය නරඹන්න",
+                        desc: "<strong>'Process Video'</strong> ඔබන්න. වීඩියෝව සකසා අවසන් වූ පසු Player එකෙන් නරඹන්න."
+                    },
+                    {
+                        num: "4",
+                        title: "පිරිසිදු වීඩියෝව බාගන්න",
+                        desc: "<strong>'⬇️ Download File Now'</strong> ඔබා පරිගණකයට හෝ දුරකථනයට කෙලින්ම සුරකින්න."
+                    }
+                ],
+                card3Title: "✨ පාවිච්චි කළාම මොකද වෙන්නේ? (ප්‍රතිඵලය)",
+                card3Desc: "ශ්‍රව්‍ය (Audio) සහ දෘශ්‍ය (Video) කොටස් අතර කාල ගැලපීම (Sync) 100% ක් ආරක්ෂා කරමින් නවීන H.264/AAC තාක්ෂණයෙන් නව MP4 හෝ GIF ගොනුවක් සකස් කර ලබාදෙයි.",
+                tryBtn: "🚀 දැන්ම Video Studio පාවිච්චි කරන්න"
+            }
+        },
+
+        enhance: {
+            icon: "fa-wand-magic-sparkles",
+            badgeColor: "emerald",
+            tabTarget: "tab-enhance",
+            en: {
+                title: "✨ AI Photo Enhancer & Color Studio",
+                subtitle: "Unsharp mask contrast enhancement, B&W photo colorization & 8 cinematic LUT filters",
+                card1Title: "💡 What is it used for? (Real-World Use Cases)",
+                card1Desc: "Instantly restore, sharpen, and transform low-quality, blurry, or vintage photos:",
+                card1Items: [
+                    "<strong>Fix Blurry Mobile Photos:</strong> Restore clarity, sharpness, and micro-contrast to shaky or out-of-focus phone photos.",
+                    "<strong>Restore Old Family Portraits:</strong> Clean up vintage black & white photos and remove film grain and scanner blur.",
+                    "<strong>AI B&W to Color Reconstruction:</strong> Automatically inject lifelike skin tones, foliage greens, and sky blues into historical B&W photos.",
+                    "<strong>Cinematic Color Grading:</strong> Apply professional Lightroom-style color grading presets with a single click."
+                ],
+                card2Title: "🛠️ How to use it step-by-step?",
+                card2Desc: "Enhance photos and compare the before/after results with interactive split sliders:",
+                card2Steps: [
+                    {
+                        num: "1",
+                        title: "Upload Your Photo",
+                        desc: "Select any PNG, JPG, or WEBP photo (up to 50 MB)."
+                    },
+                    {
+                        num: "2",
+                        title: "Select Enhancement Preset",
+                        desc: "Choose <strong>Auto HD Enhance</strong> for overall clarity, <strong>B&W to Colorizer</strong> for vintage color restoration, or one of the <strong>8 Cinematic LUTs</strong> (Teal & Orange, Cyberpunk, Sunset Gold, Vintage Retro, etc.)."
+                    },
+                    {
+                        num: "3",
+                        title: "Adjust Manual Tuning Sliders",
+                        desc: "Fine-tune with sliders: <strong>Sharpness</strong> (0–100%), <strong>Adaptive Contrast</strong> (0–50%), <strong>Brightness</strong>, and <strong>Color Saturation</strong>."
+                    },
+                    {
+                        num: "4",
+                        title: "Compare with Before/After Split Slider",
+                        desc: "Drag the vertical cyan divider line left and right to inspect the dramatic improvement side-by-side!"
+                    },
+                    {
+                        num: "5",
+                        title: "Download Ultra HD Photo",
+                        desc: "Click <strong>'⬇️ Download File Now'</strong> to export full-resolution enhanced imagery."
+                    }
+                ],
+                card3Title: "✨ What happens after processing?",
+                card3Desc: "Our vision pipeline applies spatial kernel unsharp masking, LAB-space color transfer, and contrast histogram equalization. The result retains true pixel detail without introducing plastic-looking over-smoothing.",
+                tryBtn: "🚀 Try Photo Enhancer Now"
+            },
+            si: {
+                title: "✨ AI Photo Enhancer සහ Color Studio",
+                subtitle: "නොපැහැදිලි ඡායාරූප පැහැදිලි කිරීම, පරණ කළු-සුදු ඡායාරූප පාට කිරීම (Colorize) සහ Cinematic LUTs",
+                card1Title: "💡 මොන වගේ දේවල් වලටද පාවිච්චි කරන්නේ? (ප්‍රයෝජන)",
+                card1Desc: "දුර්වල, නොපැහැදිලි හෝ පැරණි ඡායාරූප තත්පර කිහිපයකින් ස්ටූඩියෝ මට්ටමට ගෙන එන්න:",
+                card1Items: [
+                    "<strong>බොඳවුණු ඡායාරූප පැහැදිලි කිරීම:</strong> සෙලවුණු, Focus නැති වූ, හෝ ගුණාත්මක බව අඩු දුරකථන ඡායාරූප වල දාර සහ සියුම් විස්තර මතු කිරීම.",
+                    "<strong>පැරණි පින්තූර අලුත්වැඩියා කිරීම:</strong> පවුලේ පැරණි කළු-සුදු ඡායාරූප වල ඇති අපැහැදිලි බව ඉවත් කර පැහැදිලි කිරීම.",
+                    "<strong>කළු-සුදු පින්තූර පාට කිරීම (B&W Colorizer):</strong> පැරණි කළු-සුදු ඡායාරූප වලට ස්වභාවික සමේ පැහැය, නිල් අහස සහ පරිසර වර්ණ එක්කිරීම.",
+                    "<strong>සිනමාත්මක වර්ණ ගැන්වීම (Color Grading):</strong> ජනප්‍රිය Lightroom Presets මෙන් Teal & Orange, Cyberpunk, හෝ Vintage වර්ණ යෙදීම."
+                ],
+                card2Title: "🛠️ පාවිච්චි කරන්නේ කොහොමද? (පියවරෙන් පියවර උපදෙස්)",
+                card2Desc: "පහත පියවර මගින් ඔබගේ ඡායාරූප වල ගුණාත්මකභාවය ඉහළ නංවා ගන්න:",
+                card2Steps: [
+                    {
+                        num: "1",
+                        title: "ඡායාරූපය Upload කරන්න",
+                        desc: "ඕනෑම PNG, JPG, හෝ WEBP ඡායාරූපයක් ඇතුළත් කරන්න (උපරිම 50 MB)."
+                    },
+                    {
+                        num: "2",
+                        title: "Preset එක තෝරාගන්න",
+                        desc: "පැහැදිලි කිරීමට <strong>Auto HD Enhance</strong>, පාට කිරීමට <strong>B&W to Colorizer</strong>, හෝ සිනමාත්මක <strong>8 Studio LUTs</strong> (Teal & Orange, Cyberpunk, etc.) එකක් තෝරන්න."
+                    },
+                    {
+                        num: "3",
+                        title: "Sliders මගින් සියුම්ව සකසන්න",
+                        desc: "<strong>Sharpness</strong> (පැහැදිලි බව), <strong>Contrast</strong>, <strong>Brightness</strong> (දීප්තිය), සහ <strong>Saturation</strong> (වර්ණ තීව්‍රතාව) අවශ්‍ය පරිදි වෙනස් කරන්න."
+                    },
+                    {
+                        num: "4",
+                        title: "Before / After Split Slider එකෙන් වෙනස බලන්න",
+                        desc: "තිරයේ ඇති නිල් පාට ඉර දෙපසට ඇද මුල් ඡායාරූපය සහ සකස් කළ ඡායාරූපය අතර ඇති දැවැන්ත වෙනස සජීවීව නරඹන්න!"
+                    },
+                    {
+                        num: "5",
+                        title: "Ultra HD ඡායාරූපය බාගන්න",
+                        desc: "<strong>'⬇️ Download File Now'</strong> ඔබා උසස්ම තත්ත්වයෙන් ඡායාරූපය සුරකින්න."
+                    }
+                ],
+                card3Title: "✨ පාවිච්චි කළාම මොකද වෙන්නේ? (ප්‍රතිඵලය)",
+                card3Desc: "Unsharp Masking සහ Histogram Equalization තාක්ෂණයෙන් ඡායාරූපයේ සැඟවුණු විස්තර මතු කරමින් ස්වභාවික පෙනුම ආරක්ෂා කර දෙයි.",
+                tryBtn: "🚀 දැන්ම Photo Enhancer පාවිච්චි කරන්න"
+            }
+        },
+
+        privacy: {
+            icon: "fa-shield-halved",
+            badgeColor: "rose",
+            tabTarget: "tab-privacy",
+            en: {
+                title: "🔒 Privacy Censor & Social Thumbnail Studio",
+                subtitle: "Automated AI face & plate redaction + viral YouTube/FB thumbnail sticker maker",
+                card1Title: "💡 What is it used for? (Real-World Use Cases)",
+                card1Desc: "Essential privacy protection and high-CTR social media thumbnail creation in one tool:",
+                card1Items: [
+                    "<strong>Social Media Privacy Compliance:</strong> Blur children's faces, bystanders, or sensitive identities before posting online.",
+                    "<strong>Vehicle Number Plates & IDs:</strong> Redact license plates, Sri Lanka National Identity Cards (NIC), driver's licenses, and bank cards.",
+                    "<strong>Viral YouTube & Facebook Thumbnails:</strong> Add bold 3D headlines, neon outlines, and high-CTR sticker badges (🔥 VIRAL, ⚡ SALE, 💥 WOW).",
+                    "<strong>News & Legal Redaction:</strong> Apply irreversible mosaic pixelation or black bars for GDPR / PDPA privacy compliance."
+                ],
+                card2Title: "🛠️ How to use it step-by-step?",
+                card2Desc: "Protect personal identity or create eye-catching social posts with ease:",
+                card2Steps: [
+                    {
+                        num: "1",
+                        title: "Upload Your Photo",
+                        desc: "Select any photo to censor or turn into a thumbnail (up to 50 MB)."
+                    },
+                    {
+                        num: "2",
+                        title: "Choose Studio Mode",
+                        desc: "Select <strong>🕵️ Privacy & Plate Censor</strong> for redactions, or <strong>🖼️ Social Post & Thumbnail</strong> for graphic design."
+                    },
+                    {
+                        num: "3",
+                        title: "Censor Mode: Auto-Detect or Manual Boxes",
+                        desc: "Click <strong>'🔍 Auto-Detect & Blur Faces'</strong> for instant AI face blurring, or drag manual censor boxes over number plates. Choose from <strong>Gaussian Blur</strong>, <strong>Mosaic Pixelate</strong>, or <strong>Solid Black Bar</strong>."
+                    },
+                    {
+                        num: "4",
+                        title: "Thumbnail Mode: 3D Headlines & Stickers",
+                        desc: "Type your headline text, customize fill and stroke colors, adjust font size (24–120px), and click sticker badges like <strong>🔥 VIRAL</strong>, <strong>⚡ SALE</strong>, or <strong>💥 TOP</strong> to place on the canvas."
+                    },
+                    {
+                        num: "5",
+                        title: "Download Redacted Photo or Thumbnail",
+                        desc: "Click <strong>'⬇️ Download File Now'</strong> to export clean, secure media."
+                    }
+                ],
+                card3Title: "✨ What happens after processing?",
+                card3Desc: "Redacted regions are permanently destroyed and rasterized at the pixel level — original blurred pixels can never be recovered or reversed. Thumbnails are rendered with sharp vector outlines for maximum click-through rates.",
+                tryBtn: "🚀 Try Privacy & Post Now"
+            },
+            si: {
+                title: "🔒 Privacy Censor සහ Thumbnail Studio",
+                subtitle: "මුහුණු සහ වාහන අංක තහඩු Blur කිරීම + YouTube/FB සඳහා ආකර්ෂණීය Thumbnails සෑදීම",
+                card1Title: "💡 මොන වගේ දේවල් වලටද පාවිච්චි කරන්නේ? (ප්‍රයෝජන)",
+                card1Desc: "පුද්ගලිකත්වය සුරැකීම සහ සමාජ මාධ්‍ය සඳහා ආකර්ෂණීය පින්තූර සෑදීම එකම මෙවලමකින්:",
+                card1Items: [
+                    "<strong>පුද්ගලිකත්වය රැකගැනීම:</strong> සමාජ මාධ්‍ය වල පළ කිරීමට පෙර කුඩා දරුවන්ගේ, නාඳුනන පුද්ගලයින්ගේ මුහුණු ආරක්ෂිතව Blur කිරීම.",
+                    "<strong>වාහන අංක තහඩු සහ හැඳුනුම්පත්:</strong> වාහන වල Number Plates, ජාතික හැඳුනුම්පත් (NIC), රියදුරු බලපත්‍ර සහ බැංකු කාඩ්පත් වල තොරතුරු සඟවාලීම.",
+                    "<strong>YouTube & Facebook Thumbnails:</strong> වැඩි පිරිසක් ක්ලික් කරන ආකාරයේ ලොකු 3D අකුරු සහ Stickers (🔥 VIRAL, ⚡ SALE, 💥 TOP) එක්කිරීම.",
+                    "<strong>නීත්‍යානුකූල ආරක්ෂාව:</strong> ආපසු හැරවිය නොහැකි Mosaic Pixelate හෝ Black Bars මගින් රහස්‍යභාවය තහවුරු කිරීම."
+                ],
+                card2Title: "🛠️ පාවිච්චි කරන්නේ කොහොමද? (පියවරෙන් පියවර උපදෙස්)",
+                card2Desc: "පහත පියවර මගින් පුද්ගලික දත්ත සඟවන්න හෝ Thumbnails සාදන්න:",
+                card2Steps: [
+                    {
+                        num: "1",
+                        title: "ඡායාරූපය Upload කරන්න",
+                        desc: "ඕනෑම ඡායාරූපයක් ඇතුළත් කරන්න (උපරිම 50 MB)."
+                    },
+                    {
+                        num: "2",
+                        title: "Studio Mode එක තෝරන්න",
+                        desc: "තොරතුරු සැඟවීමට <strong>🕵️ Privacy Censor</strong>, හෝ Thumbnail සෑදීමට <strong>🖼️ Social Thumbnail</strong> තෝරන්න."
+                    },
+                    {
+                        num: "3",
+                        title: "Privacy: Auto-Detect හෝ Manual Boxes",
+                        desc: "මුහුණු එකවර හඳුනාගෙන Blur කිරීමට <strong>'🔍 Auto-Detect & Blur Faces'</strong> ඔබන්න, නැතහොත් අතින් Censor Boxes ඇද <strong>Gaussian Blur</strong>, <strong>Mosaic Pixelate</strong>, හෝ <strong>Black Bar</strong> දමන්න."
+                    },
+                    {
+                        num: "4",
+                        title: "Thumbnail: 3D අකුරු සහ Stickers",
+                        desc: "මාතෘකා අකුරු ලියා, පාට සහ ප්‍රමාණය වෙනස් කරන්න. <strong>🔥 VIRAL</strong>, <strong>⚡ SALE</strong>, <strong>💥 TOP</strong> වැනි Badges කැන්වසය මත තබන්න."
+                    },
+                    {
+                        num: "5",
+                        title: "ඡායාරූපය බාගන්න",
+                        desc: "<strong>'⬇️ Download File Now'</strong> ඔබා ආරක්ෂිත ඡායාරූපය හෝ Thumbnail එක බාගන්න."
+                    }
+                ],
+                card3Title: "✨ පාවිච්චි කළාම මොකද වෙන්නේ? (ප්‍රතිඵලය)",
+                card3Desc: "Censor කරන ලද කොටස්වල මුල් පික්සල් ස්ථිරවම විනාශ කර ප්‍රතිස්ථාපනය කරන බැවින් කිසිවෙකුට ආපසු මුල් තොරතුරු ලබාගත නොහැක. 100% ක් නීත්‍යානුකූලව පුද්ගලිකත්වය සුරැකේ.",
+                tryBtn: "🚀 දැන්ම Privacy & Post පාවිච්චි කරන්න"
+            }
+        },
+
+        passport: {
+            icon: "fa-id-card",
+            badgeColor: "emerald",
+            tabTarget: "tab-passport",
+            en: {
+                title: "🪪 Biometric ID, Passport & Visa Studio",
+                subtitle: "Official Sri Lanka Passport, NIC, Visa presets & printable 4×6 / A4 photo sheets at 300 DPI",
+                card1Title: "💡 What is it used for? (Real-World Use Cases)",
+                card1Desc: "Create 100% compliant biometric ID and passport photos right from your smartphone:",
+                card1Items: [
+                    "<strong>Sri Lanka Official Documents:</strong> SL Passport (35 × 45 mm), National Identity Card (NIC), and Driving License (30 × 40 mm).",
+                    "<strong>International Visa Photos:</strong> US Visa & DV Lottery (2 × 2 inches / 51 × 51 mm), UK, Schengen, Australia, and Canadian Visas.",
+                    "<strong>Printable Studio Photo Sheets:</strong> Export standard 4×6 inch photo sheets (8 passport photos grid) or A4 sheets with cutting guidelines for instant printing at any local lab.",
+                    "<strong>Official Background Enforcement:</strong> Automatically set compliant Pure White or Official Sky Blue backdrops."
+                ],
+                card2Title: "🛠️ How to use it step-by-step?",
+                card2Desc: "Follow these 6 steps to generate compliant 300 DPI ID photo sheets:",
+                card2Steps: [
+                    {
+                        num: "1",
+                        title: "Upload Portrait or Transfer from BG Studio",
+                        desc: "Upload a front-facing portrait photo, or transfer your clean cutout directly from Tool 1 with one click!"
+                    },
+                    {
+                        num: "2",
+                        title: "Select Document Preset",
+                        desc: "Choose from <strong>🇱🇰 Sri Lanka Passport (35×45mm)</strong>, <strong>🇱🇰 SL NIC / License (30×40mm)</strong>, <strong>🇺🇸 US Visa / DV Lottery (2×2\")</strong>, or <strong>🇬🇧 UK / Schengen Visa</strong>."
+                    },
+                    {
+                        num: "3",
+                        title: "Choose Official Backdrop",
+                        desc: "Select <strong>Official Pure White</strong> (standard for Passports/Visas) or <strong>Official Sky Blue</strong> (ICAO / Sri Lanka Driving License standard)."
+                    },
+                    {
+                        num: "4",
+                        title: "Align to Biometric Oval Guide",
+                        desc: "Adjust the <strong>Zoom</strong> and <strong>Pan</strong> sliders until the subject's crown of head and chin align perfectly within the green biometric guidelines."
+                    },
+                    {
+                        num: "5",
+                        title: "Choose Sheet Print Layout",
+                        desc: "Select <strong>Single ID Photo</strong>, <strong>Printable 4×6\" Sheet (8 Photos Grid)</strong>, or <strong>Printable A4 Sheet (24 Photos Grid)</strong> with cutting border guidelines."
+                    },
+                    {
+                        num: "6",
+                        title: "Download Print-Ready File",
+                        desc: "Click <strong>'⬇️ Download File Now'</strong> to export a pristine 300 DPI JPG/PNG file ready for print."
+                    }
+                ],
+                card3Title: "✨ What happens after processing?",
+                card3Desc: "Our layout compositor scales the image to exact physical millimeter dimensions at 300 DPI print resolution, calculating standard padding and faint cutting lines. Print on glossy photo paper at any local studio for pennies!",
+                tryBtn: "🚀 Try Biometric ID Studio Now"
+            },
+            si: {
+                title: "🪪 Biometric ID, Passport සහ Visa Studio",
+                subtitle: "ශ්‍රී ලංකා පාස්පෝට් (35x45mm), NIC, සහ Visa සඳහා නිල ඡායාරූප + 300 DPI Print Sheets",
+                card1Title: "💡 මොන වගේ දේවල් වලටද පාවිච්චි කරන්නේ? (ප්‍රයෝජන)",
+                card1Desc: "නිවසේ සිටම ජංගම දුරකථනයෙන් නිල ප්‍රමිතීන්ට අනුව හැඳුනුම්පත් සහ පාස්පෝට් ඡායාරූප සාදා ගන්න:",
+                card1Items: [
+                    "<strong>ශ්‍රී ලංකා නිල ලේඛන:</strong> ශ්‍රී ලංකා පාස්පෝට් (35 × 45 mm), ජාතික හැඳුනුම්පත (NIC), සහ රියදුරු බලපත්‍රය (30 × 40 mm).",
+                    "<strong>විදේශ Visa ඡායාරූප:</strong> ඇමරිකානු US Visa & DV Lottery (2 × 2 inches / 51 × 51 mm), UK, Schengen, සහ Canada Visa ඡායාරූප.",
+                    "<strong>මුද්‍රණය කළ හැකි Photo Sheets:</strong> ඕනෑම Studio එකකින් Print කර ගැනීමට 4×6 inch Sheet (ඡායාරූප 8 ක්) හෝ A4 Sheet එකක් කතුරෙන් කැපීමට Guide Lines සහිතව සෑදීම.",
+                    "<strong>නිල පසුබිම් වර්ණ:</strong> නීත්‍යානුකූල Pure White හෝ Official Sky Blue පසුබිම් ස්වයංක්‍රීයව යෙදීම."
+                ],
+                card2Title: "🛠️ පාවිච්චි කරන්නේ කොහොමද? (පියවරෙන් පියවර උපදෙස්)",
+                card2Desc: "පහත පියවර 6 අනුගමනය කර 300 DPI Print-Ready ඡායාරූප සාදා ගන්න:",
+                card2Steps: [
+                    {
+                        num: "1",
+                        title: "Portrait ඡායාරූපයක් Upload කරන්න",
+                        desc: "ඉදිරිපස බලා සිටින ඡායාරූපයක් Upload කරන්න, නැතහොත් Tool 1 (BG Studio) එකේ සිට කෙලින්ම එවන්න."
+                    },
+                    {
+                        num: "2",
+                        title: "නිල ප්‍රමාණය තෝරන්න (Document Preset)",
+                        desc: "<strong>🇱🇰 SL Passport (35×45mm)</strong>, <strong>🇱🇰 SL NIC / License (30×40mm)</strong>, <strong>🇺🇸 US Visa / DV Lottery (2×2\")</strong>, හෝ <strong>🇬🇧 UK / Schengen Visa</strong> තෝරන්න."
+                    },
+                    {
+                        num: "3",
+                        title: "නිල පසුබිම් වර්ණය තෝරන්න",
+                        desc: "පාස්පෝට් සඳහා <strong>Official Pure White</strong>, හෝ රියදුරු බලපත්‍ර සඳහා <strong>Official Sky Blue</strong> තෝරන්න."
+                    },
+                    {
+                        num: "4",
+                        title: "Biometric Oval Guide එකට මුහුණ ගළපන්න",
+                        desc: "මුහුණේ හිස මුදුන සහ නිකට හරියටම කොළ පැහැති මාර්ගෝපදේශ රේඛා තුළ පිහිටන සේ <strong>Zoom</strong> සහ <strong>Pan</strong> Sliders සකසන්න."
+                    },
+                    {
+                        num: "5",
+                        title: "Print Layout එක තෝරන්න",
+                        desc: "තනි ඡායාරූපයක් සඳහා <strong>Single ID Photo</strong>, හෝ එකවර ඡායාරූප 8 ක් Print කර ගැනීමට <strong>Printable 4×6\" Sheet</strong> තෝරන්න."
+                    },
+                    {
+                        num: "6",
+                        title: "Print-Ready ගොනුව බාගන්න",
+                        desc: "<strong>'⬇️ Download File Now'</strong> ඔබා 300 DPI High-Resolution ඡායාරූපය බාගෙන ඕනෑම Studio එකකින් අඩු වියදමින් Print කරගන්න."
+                    }
+                ],
+                card3Title: "✨ පාවිච්චි කළාම මොකද වෙන්නේ? (ප්‍රතිඵලය)",
+                card3Desc: "ජාත්‍යන්තර ICAO ප්‍රමිතීන්ට අනුව නිවැරදි මිලිමීටර් ගණනයෙන් 300 DPI තත්ත්වයෙන් සහ කතුරෙන් කැපීමට සියුම් මායිම් සහිතව ඡායාරූප පත්‍රය සකස් කර දෙයි.",
+                tryBtn: "🚀 දැන්ම Biometric ID Studio පාවිච්චි කරන්න"
+            }
+        }
+    };
+
+    function renderUserGuideContent() {
+        if (!userGuideBody) return;
+        const toolData = USER_GUIDE_DATA[currentGuideTool] || USER_GUIDE_DATA["bg"];
+        const langData = toolData[currentGuideLang] || toolData["en"];
+
+        // Update modal title & subtitle based on language
+        if (userGuideModalTitle) {
+            userGuideModalTitle.textContent = currentGuideLang === "si"
+                ? "📖 SupiriStudio PRO — සම්පූර්ණ පරිශීලක අත්පොත සහ උපදෙස්"
+                : "📖 SupiriStudio PRO — Complete User Manual & Help Center";
+        }
+        if (userGuideModalSubtitle) {
+            userGuideModalSubtitle.textContent = currentGuideLang === "si"
+                ? "ප්‍රධාන AI මෙවලම් 6 නිවැරදිව පාවිච්චි කරන ආකාරය පියවරෙන් පියවර ඉගෙන ගන්න"
+                : "Learn how to use all 6 Pro AI media tools step-by-step with practical examples";
+        }
+
+        // Update language buttons styling
+        if (guideLangEnBtn && guideLangSiBtn) {
+            if (currentGuideLang === "en") {
+                guideLangEnBtn.className = "px-2.5 py-1 rounded-lg text-xs font-bold transition-all bg-emerald-500 text-slate-950 shadow-glow-emerald cursor-pointer";
+                guideLangSiBtn.className = "px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-400 hover:text-white transition-all cursor-pointer";
+            } else {
+                guideLangSiBtn.className = "px-2.5 py-1 rounded-lg text-xs font-bold transition-all bg-gradient-to-r from-emerald-500 to-cyan-500 text-slate-950 shadow-glow-emerald cursor-pointer";
+                guideLangEnBtn.className = "px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-400 hover:text-white transition-all cursor-pointer";
+            }
+        }
+
+        // Update footer action button
+        if (guideTryBtnText) {
+            guideTryBtnText.textContent = langData.tryBtn;
+        }
+
+        // Render the 3 distinct cards
+        const card1ItemsHtml = langData.card1Items.map(item => `
+            <li class="flex items-start gap-2.5 text-xs text-slate-300 leading-relaxed">
+                <i class="fa-solid fa-circle-check text-emerald-400 mt-1 flex-shrink-0 text-xs"></i>
+                <div>${item}</div>
+            </li>
+        `).join("");
+
+        const card2StepsHtml = langData.card2Steps.map(step => `
+            <div class="flex items-start gap-3 p-3 bg-slate-950/70 border border-slate-800/90 rounded-xl">
+                <span class="w-6 h-6 rounded-lg bg-gradient-to-tr from-cyan-500/20 to-emerald-500/20 text-cyan-300 border border-cyan-500/40 font-mono font-bold text-xs flex items-center justify-center flex-shrink-0 mt-0.5">
+                    ${step.num}
+                </span>
+                <div class="space-y-1">
+                    <h5 class="text-xs font-bold text-white">${step.title}</h5>
+                    <p class="text-xs text-slate-300 leading-relaxed">${step.desc}</p>
+                </div>
+            </div>
+        `).join("");
+
+        userGuideBody.innerHTML = `
+            <!-- Tool Header Banner -->
+            <div class="p-4 rounded-2xl bg-gradient-to-r from-slate-950 via-slate-900 to-slate-950 border border-slate-800 flex items-center gap-3">
+                <div class="w-12 h-12 rounded-2xl bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center justify-center text-xl flex-shrink-0 shadow-glow-emerald">
+                    <i class="fa-solid ${toolData.icon}"></i>
+                </div>
+                <div>
+                    <h4 class="text-base sm:text-lg font-extrabold text-white tracking-tight">${langData.title}</h4>
+                    <p class="text-xs text-slate-400">${langData.subtitle}</p>
+                </div>
+            </div>
+
+            <!-- Card 1: What is it used for? (Real-World Use Cases) -->
+            <div class="p-4 sm:p-5 bg-slate-900/90 border border-emerald-500/30 rounded-2xl shadow-lg space-y-3">
+                <div class="flex items-center gap-2">
+                    <span class="px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 text-[11px] font-bold uppercase tracking-wider border border-emerald-500/30">
+                        ${langData.card1Title}
+                    </span>
+                </div>
+                <p class="text-xs text-slate-300 leading-relaxed">${langData.card1Desc}</p>
+                <ul class="space-y-2 pt-1">
+                    ${card1ItemsHtml}
+                </ul>
+            </div>
+
+            <!-- Card 2: How to use it step-by-step? -->
+            <div class="p-4 sm:p-5 bg-slate-900/90 border border-cyan-500/30 rounded-2xl shadow-lg space-y-3">
+                <div class="flex items-center gap-2">
+                    <span class="px-2.5 py-1 rounded-full bg-cyan-500/20 text-cyan-300 text-[11px] font-bold uppercase tracking-wider border border-cyan-500/30">
+                        ${langData.card2Title}
+                    </span>
+                </div>
+                <p class="text-xs text-slate-300 leading-relaxed">${langData.card2Desc}</p>
+                <div class="space-y-2.5 pt-1">
+                    ${card2StepsHtml}
+                </div>
+            </div>
+
+            <!-- Card 3: What happens after processing? -->
+            <div class="p-4 sm:p-5 bg-gradient-to-br from-slate-900/95 via-slate-950 to-slate-900/95 border border-slate-800 rounded-2xl shadow-lg space-y-2.5">
+                <div class="flex items-center gap-2">
+                    <span class="px-2.5 py-1 rounded-full bg-amber-500/20 text-amber-300 text-[11px] font-bold uppercase tracking-wider border border-amber-500/30">
+                        ${langData.card3Title}
+                    </span>
+                </div>
+                <p class="text-xs text-slate-300 leading-relaxed">${langData.card3Desc}</p>
+                <div class="flex flex-wrap items-center gap-3 pt-2 text-[11px] text-slate-400">
+                    <span class="inline-flex items-center gap-1.5"><i class="fa-solid fa-lock text-emerald-400"></i> 100% Client Privacy</span>
+                    <span class="inline-flex items-center gap-1.5"><i class="fa-solid fa-hard-drive text-cyan-400"></i> Max 50 MB / File</span>
+                    <span class="inline-flex items-center gap-1.5"><i class="fa-solid fa-bolt text-amber-400"></i> Ultra-Fast ONNX & FFmpeg Engines</span>
+                </div>
+            </div>
+        `;
+    }
+
+    function selectGuideTool(toolKey) {
+        currentGuideTool = toolKey || "bg";
+
+        // Update modal tool tabs active classes
+        const guideTabs = document.querySelectorAll(".guide-tool-tab");
+        guideTabs.forEach(tab => {
+            if (tab.getAttribute("data-guide-tool") === currentGuideTool) {
+                tab.className = "guide-tool-tab active flex-shrink-0 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all bg-gradient-to-r from-emerald-500 to-cyan-500 text-slate-950 shadow-glow-emerald cursor-pointer";
+            } else {
+                tab.className = "guide-tool-tab flex-shrink-0 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all bg-slate-900 text-slate-400 hover:text-white border border-slate-800/60 cursor-pointer";
+            }
+        });
+
+        renderUserGuideContent();
+    }
+
+    function setGuideLanguage(lang) {
+        currentGuideLang = lang === "si" ? "si" : "en";
+        renderUserGuideContent();
+    }
+
+    function openUserGuide(toolKey) {
+        if (!userGuideModal) return;
+        selectGuideTool(toolKey || currentGuideTool || "bg");
+
+        userGuideModal.classList.remove("hidden");
+        requestAnimationFrame(() => {
+            userGuideModal.classList.remove("opacity-0", "pointer-events-none");
+        });
+    }
+
+    function closeUserGuide() {
+        if (!userGuideModal) return;
+        userGuideModal.classList.add("opacity-0", "pointer-events-none");
+        setTimeout(() => {
+            userGuideModal.classList.add("hidden");
+        }, 300);
+    }
+
+    function tryActiveGuideTool() {
+        const toolData = USER_GUIDE_DATA[currentGuideTool];
+        closeUserGuide();
+        if (toolData && toolData.tabTarget && typeof switchTab === "function") {
+            switchTab(toolData.tabTarget);
+        }
+    }
+
+    function dismissWelcomeCard() {
+        if (!firstTimeWelcomeCard) return;
+        firstTimeWelcomeCard.classList.add("translate-y-4", "opacity-0");
+        setTimeout(() => {
+            firstTimeWelcomeCard.classList.add("hidden");
+        }, 400);
+        try {
+            localStorage.setItem("supiristudio_visited", "true");
+        } catch (e) {}
+    }
+
+    // First-Time Visitor Check
+    try {
+        if (!localStorage.getItem("supiristudio_visited")) {
+            setTimeout(() => {
+                if (firstTimeWelcomeCard) {
+                    firstTimeWelcomeCard.classList.remove("hidden");
+                    requestAnimationFrame(() => {
+                        firstTimeWelcomeCard.classList.remove("translate-y-4", "opacity-0");
+                    });
+                }
+            }, 1200);
+        }
+    } catch (e) {}
+
+    // Close on Escape Key
+    document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape" && userGuideModal && !userGuideModal.classList.contains("hidden")) {
+            closeUserGuide();
+        }
+    });
+
+    // Expose helpers globally for DOM onclick listeners
+    window.openUserGuide = openUserGuide;
+    window.closeUserGuide = closeUserGuide;
+    window.setGuideLanguage = setGuideLanguage;
+    window.selectGuideTool = selectGuideTool;
+    window.tryActiveGuideTool = tryActiveGuideTool;
+    window.dismissWelcomeCard = dismissWelcomeCard;
+
+    // Initial render
+    renderUserGuideContent();
+
 })();
+

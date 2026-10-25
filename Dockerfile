@@ -19,6 +19,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Pre-download and bake lightweight u2netp AI model into the image (zero cold start)
+ENV U2NET_HOME="/app/.u2net"
+RUN python -c "from rembg import new_session; new_session('u2netp')"
+
 # Copy application files
 COPY . .
 
