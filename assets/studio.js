@@ -147,7 +147,7 @@
     // ========================================================
     const tabButtons = document.querySelectorAll(".tab-btn");
 
-    function switchTab(targetId) {
+    function switchTab(targetId, updateHistory = true) {
         if (!targetId) return;
 
         tabButtons.forEach(btn => {
@@ -170,6 +170,17 @@
             }
         });
 
+        // Update browser URL hash for SEO & shareable deep links
+        if (updateHistory) {
+            try {
+                if (window.history && window.history.replaceState) {
+                    window.history.replaceState(null, "", "#" + targetId);
+                } else {
+                    window.location.hash = targetId;
+                }
+            } catch (e) {}
+        }
+
         const activePanel = document.getElementById(targetId);
         if (activePanel) {
             window.scrollTo({ top: activePanel.offsetTop - 80, behavior: "smooth" });
@@ -183,6 +194,43 @@
             switchTab(target);
         });
     });
+
+    // Deep-linking URL Resolver (Supports #tab-id, #toolName, and ?tool=name)
+    function resolveDeepLinkTab() {
+        const hash = (window.location.hash || "").replace("#", "").trim().toLowerCase();
+        const urlParams = new URLSearchParams(window.location.search);
+        const toolParam = (urlParams.get("tool") || urlParams.get("tab") || "").trim().toLowerCase();
+
+        const validTabs = ["tab-bg", "tab-eraser", "tab-video", "tab-enhance", "tab-privacy", "tab-passport"];
+        const aliasMap = {
+            "bg": "tab-bg",
+            "eraser": "tab-eraser",
+            "video": "tab-video",
+            "enhance": "tab-enhance",
+            "privacy": "tab-privacy",
+            "passport": "tab-passport",
+            "id": "tab-passport"
+        };
+
+        let target = null;
+        if (validTabs.includes(hash)) {
+            target = hash;
+        } else if (aliasMap[hash]) {
+            target = aliasMap[hash];
+        } else if (toolParam && aliasMap[toolParam]) {
+            target = aliasMap[toolParam];
+        } else if (toolParam && validTabs.includes(toolParam)) {
+            target = toolParam;
+        }
+
+        if (target) {
+            switchTab(target, false);
+        }
+    }
+
+    // Resolve deep-link on load and on browser back/forward
+    setTimeout(resolveDeepLinkTab, 60);
+    window.addEventListener("hashchange", resolveDeepLinkTab);
 
     function formatBytes(bytes, decimals = 2) {
         if (!+bytes) return "0 Bytes";

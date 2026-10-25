@@ -13,7 +13,7 @@ from PIL import Image, ImageOps, ImageEnhance, ImageDraw, ImageFilter
 import imageio_ffmpeg
 
 from fastapi import FastAPI, File, UploadFile, Form, HTTPException, Request, Response
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.background import BackgroundTask
@@ -201,6 +201,66 @@ async def serve_index():
     if os.path.exists("index.html"):
         return FileResponse("index.html", media_type="text/html")
     raise HTTPException(status_code=404, detail="index.html not found")
+
+@app.get("/robots.txt", response_class=PlainTextResponse)
+async def serve_robots():
+    """Serve robots.txt for search engine crawlers."""
+    if os.path.exists("robots.txt"):
+        return FileResponse("robots.txt", media_type="text/plain")
+    content = "User-agent: *\nAllow: /\nDisallow: /api/\n\nSitemap: https://studio.prasatek.lk/sitemap.xml\n"
+    return PlainTextResponse(content=content)
+
+@app.get("/sitemap.xml")
+async def serve_sitemap():
+    """Serve sitemap.xml for Google/Bing search indexing."""
+    if os.path.exists("sitemap.xml"):
+        return FileResponse("sitemap.xml", media_type="application/xml")
+    content = """<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+    <url>
+        <loc>https://studio.prasatek.lk/</loc>
+        <lastmod>2026-10-25</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>1.0</priority>
+    </url>
+    <url>
+        <loc>https://studio.prasatek.lk/#tab-bg</loc>
+        <lastmod>2026-10-25</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>0.9</priority>
+    </url>
+    <url>
+        <loc>https://studio.prasatek.lk/#tab-eraser</loc>
+        <lastmod>2026-10-25</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>0.9</priority>
+    </url>
+    <url>
+        <loc>https://studio.prasatek.lk/#tab-video</loc>
+        <lastmod>2026-10-25</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>0.9</priority>
+    </url>
+    <url>
+        <loc>https://studio.prasatek.lk/#tab-enhance</loc>
+        <lastmod>2026-10-25</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>0.8</priority>
+    </url>
+    <url>
+        <loc>https://studio.prasatek.lk/#tab-privacy</loc>
+        <lastmod>2026-10-25</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>0.8</priority>
+    </url>
+    <url>
+        <loc>https://studio.prasatek.lk/#tab-passport</loc>
+        <lastmod>2026-10-25</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>0.9</priority>
+    </url>
+</urlset>"""
+    return Response(content=content, media_type="application/xml")
 
 # ==========================================
 # TOOL 1: ✂️ DEEP LEARNING AI BACKGROUND REMOVER
